@@ -1,7 +1,7 @@
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-from miprop.conformer.base import ConformerGenerator
+from qsarmil.conformer.base import ConformerGenerator
 
 
 class RDKitConformerGenerator(ConformerGenerator):

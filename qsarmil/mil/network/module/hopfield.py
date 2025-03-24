@@ -1,5 +1,5 @@
 from torch.nn import Linear, Sigmoid
-from miprop.mil.network.module.base import BaseNetwork, BaseClassifier, FeatureExtractor
+from qsarmil.mil.network.module.base import BaseNetwork, BaseClassifier, FeatureExtractor
 
 
 class HopfieldNetwork(BaseNetwork):

@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.svm import SVC
-from miprop.mil.wrapper.base import BagWrapper, InstanceWrapper
+from qsarmil.mil.wrapper.base import BagWrapper, InstanceWrapper
 
 
 class BagWrapperClassifier(BagWrapper):

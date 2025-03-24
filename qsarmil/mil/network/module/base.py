@@ -4,7 +4,7 @@ from torch import nn
 import torch_optimizer as optim
 from torch.nn import Sigmoid, Linear, ReLU, Sequential
 from sklearn.model_selection import train_test_split
-from miprop.mil.network.module.utils import add_padding, get_mini_batches, set_seed
+from qsarmil.mil.network.module.utils import add_padding, get_mini_batches, set_seed
 
 
 class BaseClassifier:

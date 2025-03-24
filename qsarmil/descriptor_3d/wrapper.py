@@ -1,5 +1,5 @@
 import numpy as np
-from miprop.utils.logging import FailedDescriptor
+from qsarmil.utils.logging import FailedDescriptor
 
 
 class DescriptorWrapper:

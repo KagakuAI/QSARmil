@@ -1,6 +1,6 @@
 import numpy as np
 
-from miprop.mil.wrapper.base import InstanceWrapper, BagWrapper
+from qsarmil.mil.wrapper.base import InstanceWrapper, BagWrapper
 
 
 class InstanceWrapperRegressor(InstanceWrapper):

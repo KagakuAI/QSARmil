@@ -1,10 +1,10 @@
-from miprop.mil.network.module.attention import AttentionNetwork, SelfAttentionNetwork, GatedAttentionNetwork, \
+from qsarmil.mil.network.module.attention import AttentionNetwork, SelfAttentionNetwork, GatedAttentionNetwork, \
     TemperatureAttentionNetwork, GumbelAttentionNetwork
-from miprop.mil.network.module.base import BaseClassifier
-from miprop.mil.network.module.dynamic import DynamicPoolingNetwork, MarginLoss
-from miprop.mil.network.module.gaussian import GaussianPoolingNetwork
-from miprop.mil.network.module.hopfield import HopfieldNetwork
-from miprop.mil.network.module.classic import BagNetwork, InstanceNetwork
+from qsarmil.mil.network.module.base import BaseClassifier
+from qsarmil.mil.network.module.dynamic import DynamicPoolingNetwork, MarginLoss
+from qsarmil.mil.network.module.gaussian import GaussianPoolingNetwork
+from qsarmil.mil.network.module.hopfield import HopfieldNetwork
+from qsarmil.mil.network.module.classic import BagNetwork, InstanceNetwork
 
 
 class AttentionNetworkClassifier(AttentionNetwork, BaseClassifier):

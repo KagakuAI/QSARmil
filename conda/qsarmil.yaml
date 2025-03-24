@@ -1,4 +1,4 @@
-name: miprop
+name: qsarmil
 channels:
   - pytorch
   - nvidia

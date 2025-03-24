@@ -2,7 +2,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit import RDLogger
 from joblib import Parallel, delayed
-from miprop.utils.logging import FailedMolecule, FailedConformer
+from qsarmil.utils.logging import FailedMolecule, FailedConformer
 
 RDLogger.DisableLog('rdApp.*')
 

@@ -1,8 +1,8 @@
 import torch
 from torch import nn
 from torch.nn import Sequential, Linear, Sigmoid, Softmax, Tanh
-from miprop.mil.network.module.base import BaseNetwork, FeatureExtractor
-from miprop.mil.network.module.utils import SelfAttention
+from qsarmil.mil.network.module.base import BaseNetwork, FeatureExtractor
+from qsarmil.mil.network.module.utils import SelfAttention
 
 
 class AttentionNetwork(BaseNetwork):
