@@ -49,7 +49,7 @@ class BaseNetwork(nn.Module):
                  weight_decay=0.001,
                  instance_weight_dropout=0,
                  verbose=False,
-                 init_cuda=True):
+                 init_cuda=False):
 
         super().__init__()
 

@@ -1,3 +1,4 @@
+from torch import nn
 from torch.nn import Sequential, Linear, Softmax, Sigmoid
 from miprop.mil.network.module.base import BaseNetwork, BaseClassifier, FeatureExtractor
 

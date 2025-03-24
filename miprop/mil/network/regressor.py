@@ -2,8 +2,9 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from miprop.mil.network.module.attention import AttentionNetwork, SelfAttentionNetwork, GatedAttentionNetwork, \
-    TemperatureAttentionNetwork, GumbelAttentionNetwork
+from miprop.mil.network.module.attention import AttentionNetwork, SelfAttentionNetwork, GatedAttentionNetwork
+from miprop.mil.network.module.attention import TemperatureAttentionNetwork
+
 from miprop.mil.network.module.base import BaseRegressor
 from miprop.mil.network.module.utils import add_padding
 from miprop.mil.network.module.dynamic import DynamicPoolingNetwork
