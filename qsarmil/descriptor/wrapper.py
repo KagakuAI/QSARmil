@@ -7,7 +7,7 @@ class DescriptorWrapper:
         super().__init__()
         self.transformer = transformer
 
-    def _mol2bag(self, mol):
+    def _ce2bag(self, mol):
         bag = []
         for conf in mol.GetConformers():
             x = self.transformer(mol, conformer_id=conf.GetId())
@@ -20,8 +20,9 @@ class DescriptorWrapper:
         for mol_id, mol in enumerate(list_of_mols):
 
             try:
-                x = self._mol2bag(mol)
+                x = self._ce2bag(mol)
             except Exception as e:
+                print(e)
                 x = FailedDescriptor(mol)
             list_of_bags.append(x)
 

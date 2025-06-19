@@ -44,7 +44,7 @@ class InstanceNetwork(BaseNetwork):
         if isinstance(self, BaseClassifier):
             out = Sigmoid()(out)
         out = self.pooling(out, m)
-        return w, out
+        return None, out
 
 
 class Pooling(nn.Module):
