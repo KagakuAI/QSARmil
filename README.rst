@@ -1,7 +1,7 @@
 
-QSARmil - a tool for predictive modelling
+QSARmil - molecular multi-instance machine learning
 ============================================
-QSARmil tool
+``QSARmil`` is a package for designing pipelines for building QSAR models with multi-instance machine learning algorithms.
 
 Installation
 ------------
@@ -12,17 +12,11 @@ To install `QSARmil``, first clone the repository and move the package directory
 
 .. code-block:: bash
 
-    git clone https://github.com/dzankov/MI-PROP.git
-    cd MI-PROP/
-
-Next, create ``QSARmil`` environment with ``qsarmil.yaml`` file:
-
-.. code-block:: bash
-
-    conda env create -f conda/qsarmil.yaml
+    git clone https://github.com/KagakuAI/QSARmil.git
+    conda env create -f QSARmil/conda/qsarmil.yaml
     conda activate qsarmil
 
-The installed ``MI-PROP`` environment can then be added to the Jupyter platform:
+The installed ``QSARmil`` environment can then be added to the Jupyter platform:
 
 .. code-block:: bash
 
@@ -33,8 +27,4 @@ The installed ``MI-PROP`` environment can then be added to the Jupyter platform:
 Quick start
 ------------
 
-Python interface
-
-
-
-QSARmil
+See the `tutorial <tutorials/Tutorial_1_Pipeline.ipynb>`_ .
