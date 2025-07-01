@@ -1,5 +1,5 @@
 from qsarmil.mil.network.module.attention import AttentionNetwork, SelfAttentionNetwork, GatedAttentionNetwork, \
-    TemperatureAttentionNetwork, GumbelAttentionNetwork
+    TemperatureAttentionNetwork
 from qsarmil.mil.network.module.base import BaseClassifier
 from qsarmil.mil.network.module.dynamic import DynamicPoolingNetwork, MarginLoss
 from qsarmil.mil.network.module.gaussian import GaussianPoolingNetwork
