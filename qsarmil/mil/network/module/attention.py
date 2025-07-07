@@ -1,144 +1,221 @@
 import torch
 from torch import nn
-from torch.nn import Sequential, Linear, Sigmoid, Softmax, Tanh
 from qsarmil.mil.network.module.base import BaseNetwork, FeatureExtractor
-from qsarmil.mil.network.module.utils import SelfAttention
 
 
 class AttentionNetwork(BaseNetwork):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _initialize(self, input_layer_size, hidden_layer_sizes):
-
+    def _initialize(self, input_layer_size: int, hidden_layer_sizes: tuple[int, ...]):
+        """
+        Initialize layers:
+        - Feature extractor
+        - Detector network producing scalar attention logits per instance
+        - Estimator mapping aggregated features to output
+        """
         self.extractor = FeatureExtractor((input_layer_size, *hidden_layer_sizes))
-        self.estimator = Linear(hidden_layer_sizes[-1], 1)
-        self.attention = Sequential(
-            Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1]),
-            Tanh(),
-            Linear(hidden_layer_sizes[-1], 1)
+        self.detector = nn.Sequential(
+            nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1]),
+            nn.Tanh(),
+            nn.Linear(hidden_layer_sizes[-1], 1)
         )
+        self.estimator = nn.Linear(hidden_layer_sizes[-1], 1)
 
-        if self.init_cuda:
-            self.extractor.cuda()
-            self.attention.cuda()
-            self.estimator.cuda()
+    def forward(self, x: torch.Tensor, mask: torch.Tensor):
+        """
+        Args:
+            x: Input instances (B, N, D_in)
+            mask: Mask for valid instances (B, N, 1)
 
-    def forward(self, x, m):
+        Returns:
+            weights: Attention weights (B, 1, N)
+            out: Bag-level prediction (B, 1, 1)
+        """
+        x_feat = self.extractor(x)  # (B, N, D_hidden)
+        logits = mask * self.detector(x_feat)  # (B, N, 1)
+        logits = logits.transpose(2, 1)          # (B, 1, N)
+        weights = torch.softmax(logits, dim=2)   # (B, 1, N)
 
-        x = self.extractor(x)
-        x_det = torch.transpose(m * self.attention(x), 2, 1)
+        bag_embedding = torch.bmm(weights, x_feat)  # (B, 1, D_hidden)
+        bag_score = self.estimator(bag_embedding)          # (B, 1, 1)
+        bag_pred = self.get_pred(bag_score)
 
-        w = Softmax(dim=2)(x_det)
+        return weights, bag_pred
 
-        x = torch.bmm(w, x)
+class TempAttentionNetwork(AttentionNetwork):
+    def __init__(self, tau: float = 1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.tau = tau
 
-        out = self.estimator(x)
+    def forward(self, x: torch.Tensor, mask: torch.Tensor):
+        x_feat = self.extractor(x)
+        logits = mask * self.detector(x_feat)
+        logits = logits.transpose(2, 1)
+        weights = torch.softmax(logits / self.tau, dim=2)
 
-        out = self.get_score(out)
+        bag_embedding = torch.bmm(weights, x_feat)
+        bag_score = self.estimator(bag_embedding)
+        bag_pred = self.get_pred(bag_score)
 
-        return w, out
+        return weights, bag_pred
 
 
 class GatedAttentionNetwork(BaseNetwork):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _initialize(self, input_layer_size, hidden_layer_sizes):
+    def _initialize(self, input_layer_size: int, hidden_layer_sizes: tuple[int, ...]):
+        self.extractor = FeatureExtractor((input_layer_size, *hidden_layer_sizes))
 
-        det_ndim = (128,)
+        self.gate_V = nn.Sequential(
+            nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1]),
+            nn.Tanh()
+        )
+        self.gate_U = nn.Sequential(
+            nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1]),
+            nn.Sigmoid()
+        )
+        self.detector = nn.Linear(hidden_layer_sizes[-1], 1)
+        self.estimator = nn.Linear(hidden_layer_sizes[-1], 1)
 
-        self.main_net = FeatureExtractor((input_layer_size, *hidden_layer_sizes))
+    def forward(self, x: torch.Tensor, mask: torch.Tensor):
+        """
+        Args:
+            x: (B, N, D_in)
+            mask: (B, N, 1)
 
-        self.attention_V = Sequential(Linear(hidden_layer_sizes[-1], det_ndim[0]), Tanh())
+        Returns:
+            weights: Attention weights (B, 1, N)
+            out: Bag-level prediction (B, 1, 1)
+        """
+        x_feat = self.extractor(x)  # (B, N, D_hidden)
+        x_gated = self.gate_V(x_feat) * self.gate_U(x_feat) # (B, N, D_hidden)
 
-        self.attention_U = Sequential(Linear(hidden_layer_sizes[-1], det_ndim[0]), Sigmoid())
+        logits = mask * self.detector(x_gated)  # (B, N, 1)
+        logits = logits.transpose(2, 1)       # (B, 1, N)
+        weights = torch.softmax(logits, dim=2)  # (B, 1, N)
 
-        self.detector = Linear(det_ndim[0], 1)
+        bag_embedding = torch.bmm(weights, x_feat)  # (B, 1, D_hidden)
+        bag_score = self.estimator(bag_embedding)          # (B, 1, 1)
+        bag_pred = self.get_pred(bag_score)
 
-        self.estimator = Linear(hidden_layer_sizes[-1], 1)
+        return weights, bag_pred
 
-        if self.init_cuda:
-            self.main_net.cuda()
-            self.attention_V.cuda()
-            self.attention_U.cuda()
-            self.detector.cuda()
-            self.estimator.cuda()
+class MultiHeadAttentionNetwork(BaseNetwork):
+    def __init__(self, num_heads: int = 2, **kwargs):
+        self.num_heads = num_heads
+        super().__init__(**kwargs)
 
-    def forward(self, x, m):
+    def _initialize(self, input_layer_size: int, hidden_layer_sizes: tuple[int, ...]):
+        self.extractor = FeatureExtractor((input_layer_size, *hidden_layer_sizes))
+        self.detector = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1]),
+                nn.Tanh(),
+                nn.Linear(hidden_layer_sizes[-1], 1)
+            )
+            for _ in range(self.num_heads)
+        ])
+        self.estimator = nn.Linear(hidden_layer_sizes[-1] * self.num_heads, 1)
 
-        x = self.main_net(x)
+    def forward(self, x: torch.Tensor, mask: torch.Tensor):
+        """
+        Args:
+            x: (B, N, D_in)
+            mask: (B, N, 1)
 
-        w_v = self.attention_V(x)
+        Returns:
+            avg_weights: Average attention weights across heads (B, 1, N)
+            out: Bag-level prediction (B, 1, 1)
+        """
+        x_feat = self.extractor(x)  # (B, N, D_hidden)
 
-        w_u = self.attention_U(x)
+        head_outputs, head_weights = [], []
+        for head in self.detector:
+            logits = mask * head(x_feat)  # (B, N, 1)
+            weights = torch.softmax(logits, dim=1)  # (B, N, 1)
+            head_embedding = torch.sum(weights * x_feat, dim=1)  # (B, D_hidden)
+            head_outputs.append(head_embedding)
+            head_weights.append(weights)
 
-        x_det = torch.transpose(m * self.detector(w_v * w_u), 2, 1)
+        weights = torch.stack(head_weights, dim=0).mean(dim=0).transpose(2, 1)  # (B, 1, N)
+        bag_embedding = torch.cat(head_outputs, dim=1)  # (B, D_hidden * num_heads)
 
-        w = Softmax(dim=2)(x_det)
+        bag_score = self.estimator(bag_embedding)              # (B, 1)
+        bag_pred = self.get_pred(bag_score.unsqueeze(1).unsqueeze(2))  # reshape (B, 1, 1)
 
-        x = torch.bmm(w, x)
-
-        out = self.estimator(x)
-
-        out = self.get_score(out)
-
-        return w, out
-
+        return weights, bag_pred
 
 class SelfAttentionNetwork(BaseNetwork):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def _initialize(self, input_layer_size, hidden_layer_sizes):
+    def _initialize(self, input_layer_size: int, hidden_layer_sizes: tuple[int, ...]):
 
-        det_ndim = (128,)
-        self.main_net = FeatureExtractor((input_layer_size, *hidden_layer_sizes))
-        self.attention = SelfAttention(hidden_layer_sizes[-1], hidden_layer_sizes[-1])
-        self.detector = Sequential(Linear(hidden_layer_sizes[-1], det_ndim[0]), Tanh(), Linear(det_ndim[0], 1))
-        self.estimator = Linear(hidden_layer_sizes[-1], 1)
+        self.extractor = FeatureExtractor((input_layer_size, *hidden_layer_sizes))
 
-        if self.init_cuda:
-            self.main_net.cuda()
-            self.attention.cuda()
-            self.detector.cuda()
-            self.estimator.cuda()
+        self.w_query = nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1])
+        self.w_key = nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1])
+        self.w_value = nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1])
 
-    def forward(self, x, m):
-        x = self.main_net(x)
-        x = self.attention(x)
+        self.detector = nn.Sequential(
+            nn.Linear(hidden_layer_sizes[-1], hidden_layer_sizes[-1]),
+            nn.Tanh(),
+            nn.Linear(hidden_layer_sizes[-1], 1)
+        )
+        self.estimator = nn.Linear(hidden_layer_sizes[-1], 1)
 
-        x_det = torch.transpose(m * self.detector(x), 2, 1)
+    def self_attention(self, x: torch.Tensor) -> torch.Tensor:
+        Q = self.w_query(x)
+        K = self.w_key(x)
+        V = self.w_value(x)
 
-        w = Softmax(dim=2)(x_det)
+        d_k = Q.size(-1)
+        scores = torch.bmm(Q, K.transpose(2, 1)) / (d_k ** 0.5)
+        attn_weights = torch.softmax(scores, dim=-1)
+        output = torch.bmm(attn_weights, V)
+        return output
 
-        x = torch.bmm(w, x)
-        out = self.estimator(x)
-        out = self.get_score(out)
-        return w, out
+    def forward(self, x: torch.Tensor, mask: torch.Tensor):
+        x_feat = self.extractor(x)
+        x_att = self.self_attention(x_feat)
 
+        logits = mask * self.detector(x_feat)
+        logits = logits.transpose(2, 1)
+        weights = torch.softmax(logits, dim=2)
 
-class TemperatureAttentionNetwork(AttentionNetwork):
+        bag_embedding = torch.bmm(weights, x_att)
+        bag_score = self.estimator(bag_embedding)
+        bag_pred = self.get_pred(bag_score)
 
-    def __init__(self, tau=1, **kwargs):
+        return weights, bag_pred
+
+class HopfieldAttentionNetwork(BaseNetwork):
+    def __init__(self, beta: float = 1.0, **kwargs):
+        self.beta = beta
         super().__init__(**kwargs)
-        self.tau = tau
 
-    def forward(self, x, m):
+    def _initialize(self, input_layer_size: int, hidden_layer_sizes: tuple[int, ...]):
+        self.extractor = FeatureExtractor((input_layer_size, *hidden_layer_sizes))
+        self.query_vector = nn.Parameter(torch.randn(1, hidden_layer_sizes[-1]))
+        self.estimator = nn.Linear(hidden_layer_sizes[-1], 1)
 
-        x = self.extractor(x)
+    def forward(self, x: torch.Tensor, mask: torch.Tensor):
+        B, N, _ = x.size()
+        x_feat = self.extractor(x)
 
-        x_det = torch.transpose(m * self.attention(x), 2, 1)
+        q = self.query_vector.unsqueeze(0).expand(B, 1, -1)
 
-        w = Softmax(dim=2)(x_det / self.tau)
+        logits = self.beta * torch.bmm(q, x_feat.transpose(2, 1))
 
-        x = torch.bmm(w, x)
+        mask_bool = mask.squeeze(-1).bool()
+        logits = logits.masked_fill(~mask_bool.unsqueeze(1), float("-inf"))
 
-        out = self.estimator(x)
+        weights = torch.softmax(logits, dim=2)
+        bag_embedding = torch.bmm(weights, x_feat)
 
-        out = self.get_score(out)
+        bag_score = self.estimator(bag_embedding)
+        bag_pred = self.get_pred(bag_score)
 
-        return w, out
-
-
-
+        return weights, bag_pred

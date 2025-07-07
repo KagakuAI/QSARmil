@@ -25,7 +25,6 @@ class DescriptorWrapper:
                 print(e)
                 x = FailedDescriptor(mol)
             list_of_bags.append(x)
-            # print(mol_id)
 
         return list_of_bags
 

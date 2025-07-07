@@ -12,7 +12,7 @@ class BaseClassifier:
         total_loss = nn.BCELoss(reduction='mean')(y_pred, y_true.reshape(-1, 1))
         return total_loss
 
-    def get_score(self, out):
+    def get_pred(self, out):
         out = Sigmoid()(out)
         out = out.view(-1, 1)
         return out
@@ -23,7 +23,7 @@ class BaseRegressor:
         total_loss = nn.MSELoss(reduction='mean')(y_pred, y_true.reshape(-1, 1))
         return total_loss
 
-    def get_score(self, out):
+    def get_pred(self, out):
         out = out.view(-1, 1)
         return out
 
@@ -148,6 +148,7 @@ class BaseNetwork(nn.Module):
             if self.init_cuda:
                 x, m = x.cuda(), m.cuda()
             w, y_pred = self.forward(x, m)
+
         w = w.view(w.shape[0], w.shape[-1]).cpu()
         m = m.cpu()
         w = [np.asarray(i[j.bool().flatten()]) for i, j in zip(w, m)]

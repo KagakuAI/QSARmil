@@ -49,6 +49,7 @@ class DynamicPooling(nn.Module):
             b_new = torch.sum(s * x, dim=2)
             b_new = b_new.reshape(b_new.shape[0], b_new.shape[1], 1)
             b = b + b_new
+
         w = Softmax(dim=1)(b)
 
         s = s.view(s.shape[0], s.shape[-1])
@@ -65,16 +66,11 @@ class DynamicPoolingNetwork(BaseNetwork):
         self.pooling = DynamicPooling()
         self.estimator = Norm()
 
-        if self.init_cuda:
-            self.extractor.cuda()
-            self.pooling.cuda()
-            self.estimator.cuda()
-
     def forward(self, x, m):
         x = self.extractor(x)
         w, s = self.pooling(x, m)
-        out = self.estimator(s)
-        return w, out
+        bag_score = self.estimator(s)
+        return w, bag_score
 
     def predict(self, x):
         y_pred = super().predict(x)
