@@ -60,7 +60,6 @@ class TempAttentionNetwork(AttentionNetwork):
 
         return weights, bag_pred
 
-
 class GatedAttentionNetwork(BaseNetwork):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -174,8 +173,8 @@ class SelfAttentionNetwork(BaseNetwork):
         d_k = Q.size(-1)
         scores = torch.bmm(Q, K.transpose(2, 1)) / (d_k ** 0.5)
         attn_weights = torch.softmax(scores, dim=-1)
-        output = torch.bmm(attn_weights, V)
-        return output
+        x_att = torch.bmm(attn_weights, V)
+        return x_att
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor):
         x_feat = self.extractor(x)
@@ -203,6 +202,7 @@ class HopfieldAttentionNetwork(BaseNetwork):
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor):
         B, N, _ = x.size()
+
         x_feat = self.extractor(x)
 
         q = self.query_vector.unsqueeze(0).expand(B, 1, -1)
@@ -211,10 +211,9 @@ class HopfieldAttentionNetwork(BaseNetwork):
 
         mask_bool = mask.squeeze(-1).bool()
         logits = logits.masked_fill(~mask_bool.unsqueeze(1), float("-inf"))
-
         weights = torch.softmax(logits, dim=2)
-        bag_embedding = torch.bmm(weights, x_feat)
 
+        bag_embedding = torch.bmm(weights, x_feat)
         bag_score = self.estimator(bag_embedding)
         bag_pred = self.get_pred(bag_score)
 

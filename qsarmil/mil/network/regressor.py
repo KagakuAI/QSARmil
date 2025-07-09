@@ -2,7 +2,12 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from qsarmil.mil.network.module.attention import AttentionNetwork, SelfAttentionNetwork, GatedAttentionNetwork
+from qsarmil.mil.network.module.attention import (AttentionNetwork,
+                                                  SelfAttentionNetwork,
+                                                  GatedAttentionNetwork,
+                                                  MultiHeadAttentionNetwork,
+                                                  HopfieldAttentionNetwork)
+
 from qsarmil.mil.network.module.attention import TempAttentionNetwork
 
 from qsarmil.mil.network.module.base import BaseRegressor
@@ -15,6 +20,9 @@ class AttentionNetworkRegressor(AttentionNetwork, BaseRegressor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+class MultiHeadAttentionNetworkRegressor(MultiHeadAttentionNetwork, BaseRegressor):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 class SelfAttentionNetworkRegressor(SelfAttentionNetwork, BaseRegressor):
     def __init__(self, **kwargs):
@@ -25,6 +33,9 @@ class GatedAttentionNetworkRegressor(GatedAttentionNetwork, BaseRegressor):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+class HopfieldAttentionNetworkRegressor(HopfieldAttentionNetwork, BaseRegressor):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
 class TempAttentionNetworkRegressor(TempAttentionNetwork, BaseRegressor):
     def __init__(self, **kwargs):

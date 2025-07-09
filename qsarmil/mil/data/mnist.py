@@ -125,3 +125,80 @@ def create_bags_xor(data, targets, bag_size=10, num_bags=1000, key_digits=(3, 7)
         key_indices_per_bag.append(key_pos)
 
     return bags, bag_labels, key_indices_per_bag
+
+def create_bags_sum(data, targets, bag_size=5, num_bags=1000, random_state=42):
+
+    rng = np.random.RandomState(random_state)
+
+    bags = []
+    labels = []
+    instance_digits = []
+
+    indices = np.arange(len(data))
+
+    for _ in range(num_bags):
+        selected_indices = rng.choice(indices, size=bag_size, replace=False)
+        bag = data[selected_indices]
+        digits = targets[selected_indices]
+        label = np.sum(digits)
+
+        bags.append(bag)
+        labels.append(label)
+        instance_digits.append(digits.tolist())
+
+    return bags, labels, instance_digits
+
+
+def show_digit(vector, title=None):
+    if vector.shape[0] != 784:
+        raise ValueError("Expected a vector of length 784.")
+
+    image = vector.reshape(28, 28)
+    plt.imshow(image, cmap="gray")
+    plt.axis("off")
+    if title:
+        plt.title(title)
+    plt.show()
+
+
+def visualize_bag_with_weights(bag, weights, digits=None, title=None, cmap='gray', sort=False):
+    """
+    Visualize instances in a bag with attention weights only.
+
+    Parameters:
+    - bag: list or array of images (e.g., [28*28] arrays)
+    - weights: list or array of attention weights (same length as bag)
+    - digits: optional list of digit labels corresponding to instances (used only for sorting)
+    - title: optional figure title
+    - cmap: colormap for images
+    - sort: if True, sort images by digit value (requires digits)
+    """
+    bag = np.array(bag)
+    weights = np.array(weights)
+
+    if sort and digits is not None:
+        digits = np.array(digits)
+        sort_idx = np.argsort(digits)
+        bag = bag[sort_idx]
+        weights = weights[sort_idx]
+
+    bag_size = len(bag)
+    cols = min(5, bag_size)
+    rows = (bag_size + cols - 1) // cols
+
+    fig, axes = plt.subplots(rows, cols, figsize=(2.5 * cols, 2.5 * rows))
+    axes = axes.flatten()
+
+    for i in range(bag_size):
+        image = bag[i].reshape(28, 28)
+        axes[i].imshow(image, cmap=cmap)
+        axes[i].set_title(f"{weights[i]:.2f}", fontsize=12)
+        axes[i].axis("off")
+
+    for i in range(bag_size, len(axes)):
+        axes[i].axis("off")
+
+    if title:
+        fig.suptitle(title, fontsize=16)
+    plt.tight_layout()
+    plt.show()

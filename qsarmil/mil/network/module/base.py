@@ -6,6 +6,7 @@ from torch.nn import Sigmoid, Linear, ReLU, Sequential
 from sklearn.model_selection import train_test_split
 from qsarmil.mil.network.module.utils import add_padding, get_mini_batches, set_seed
 
+set_seed(42)  # TODO change later
 
 class BaseClassifier:
     def loss(self, y_pred, y_true):
@@ -53,8 +54,6 @@ class BaseNetwork(nn.Module):
 
         super().__init__()
 
-        set_seed(42)  # TODO change later
-
         self.hidden_layer_sizes = hidden_layer_sizes
         self.num_epoch = num_epoch
         self.learning_rate = learning_rate
@@ -98,7 +97,29 @@ class BaseNetwork(nn.Module):
             optimizer.step()
         return total_loss.item()
 
+    def _reset_weights(self):
+        def _init_weights(m):
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.Conv2d):
+                nn.init.kaiming_uniform_(m.weight, mode='fan_in', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.LayerNorm):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
+            # Add other layer types and initializations as needed
+        self.apply(_init_weights)
+
     def fit(self, x, y):
+
+        self._reset_weights()
+
         input_layer_size = x[0].shape[-1] # TODO make consistent: x.shape[-1]
         self._initialize(input_layer_size=input_layer_size,
                          hidden_layer_sizes=self.hidden_layer_sizes)
@@ -110,6 +131,7 @@ class BaseNetwork(nn.Module):
         for epoch in range(self.num_epoch):
 
             mb = get_mini_batches(x_train, y_train, m_train, batch_size=self.batch_size)
+
             self.train()
             for x_mb, y_mb, m_mb in mb:
                 loss = self._loss_batch(x_mb, y_mb, m_mb, optimizer=optimizer)
@@ -124,19 +146,22 @@ class BaseNetwork(nn.Module):
                 best_parameters = self.state_dict()
                 if self.verbose:
                     print(epoch, loss)
+
         self.load_state_dict(best_parameters, strict=True)
+
         return self
 
     def predict(self, x):
         x, m = add_padding(np.asarray(x, dtype="object"))
         x = torch.from_numpy(x.astype('float32'))
         m = torch.from_numpy(m.astype('float32'))
+
         self.eval()
         with torch.no_grad():
             if self.init_cuda:
                 x, m = x.cuda(), m.cuda()
             w, y_pred = self.forward(x, m)
-        return np.asarray(y_pred.cpu())
+        return np.asarray(y_pred.cpu()).flatten()
 
     def get_instance_weights(self, x):
         x, m = add_padding(np.asarray(x, dtype="object"))

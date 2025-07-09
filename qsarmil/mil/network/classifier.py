@@ -9,21 +9,17 @@ class AttentionNetworkClassifier(AttentionNetwork, BaseClassifier):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-
 class MultiHeadAttentionNetworkClassifier(MultiHeadAttentionNetwork, BaseClassifier):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
 
 class SelfAttentionNetworkClassifier(SelfAttentionNetwork, BaseClassifier):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-
 class GatedAttentionNetworkClassifier(GatedAttentionNetwork, BaseClassifier):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
 
 class TempAttentionNetworkClassifier(TempAttentionNetwork, BaseClassifier):
     def __init__(self, **kwargs):
@@ -38,11 +34,9 @@ class BagNetworkClassifier(BagNetwork, BaseClassifier):
     def __init__(self, pool='mean', **kwargs):
         super().__init__(pool=pool, **kwargs)
 
-
 class InstanceNetworkClassifier(InstanceNetwork, BaseClassifier):
     def __init__(self, pool='mean', **kwargs):
         super().__init__(pool=pool, **kwargs)
-
 
 class DynamicPoolingNetworkClassifier(DynamicPoolingNetwork, BaseClassifier):
     def __init__(self, **kwargs):
