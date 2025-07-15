@@ -14,7 +14,6 @@ but rather by a set of multiple alternative instances.
 
 
 .. image:: docs/frg_1.png
-   :alt: Types of ambiguity in tasks related to modeling molecular properties and functions.
    :width: 300px
 
 **Polymorphism ambiguity.** This type of ambiguity arises when a molecule can be represented by alternative instances,
