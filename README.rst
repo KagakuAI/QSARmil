@@ -14,7 +14,7 @@ but rather by a set of multiple alternative instances.
 
 
 .. image:: docs/fgr_1.png
-   :width: 300px
+   :width: 600px
 
 **Polymorphism ambiguity.** This type of ambiguity arises when a molecule can be represented by alternative instances,
 such as conformations, tautomers, protonation states, etc.
