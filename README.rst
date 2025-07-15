@@ -13,7 +13,7 @@ for solving problems where objects under study cannot be uniquely represented by
 but rather by a set of multiple alternative instances.
 
 
-.. image:: docs/frg_1.png
+.. image:: docs/fgr_1.png
    :width: 300px
 
 **Polymorphism ambiguity.** This type of ambiguity arises when a molecule can be represented by alternative instances,
