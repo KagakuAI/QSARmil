@@ -33,12 +33,11 @@ Installation
 
 ``QSARmil`` can be installed using conda/mamba package managers.
 
-To install ``QSARmil``, first clone the repository and move the package directory:
-
 .. code-block:: bash
 
     git clone https://github.com/KagakuAI/QSARmil.git
     conda env create -f QSARmil/conda/qsarmil.yaml
+    pip install git+https://github.com/KagakuAI/milearn.git
     conda activate qsarmil
 
 The installed ``QSARmil`` environment can then be added to the Jupyter platform:
