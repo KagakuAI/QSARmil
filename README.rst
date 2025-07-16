@@ -1,5 +1,5 @@
 
-QSARmil - molecular multi-instance machine learning
+QSARmil - Molecular Multi-Instance Machine Learning
 ============================================
 ``QSARmil`` is a package for designing pipelines for building QSAR models with multi-instance machine learning algorithms.
 
@@ -36,8 +36,7 @@ Installation
 .. code-block:: bash
 
     git clone https://github.com/KagakuAI/QSARmil.git
-    conda env create -f QSARmil/conda/qsarmil.yaml
-    pip install git+https://github.com/KagakuAI/milearn.git
+    conda env create -f QSARmil/conda/qsarmil_linux.yml
     conda activate qsarmil
 
 The installed ``QSARmil`` environment can then be added to the Jupyter platform:

@@ -1,0 +1,14 @@
+name: tmp
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - scikit-learn
+  - pandas
+  - tqdm
+  - pip:
+      - rdkit
+      - molfeat
+      - git+https://github.com/KagakuAI/milearn.git
