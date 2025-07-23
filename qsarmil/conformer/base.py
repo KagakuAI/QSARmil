@@ -9,13 +9,14 @@ RDLogger.DisableLog('rdApp.*')
 
 
 class ConformerGenerator:
-    def __init__(self, num_conf=10, e_thresh=None, rmsd_thresh=None, num_cpu=1):
+    def __init__(self, num_conf=10, e_thresh=None, rmsd_thresh=None, num_cpu=1, verbose=True):
         super().__init__()
 
         self.num_conf = num_conf
         self.e_thresh = e_thresh
         self.rmsd_thresh = rmsd_thresh
         self.num_cpu = num_cpu
+        self.verbose = verbose
 
     def _prepare_molecule(self, mol):
         return NotImplemented
@@ -54,7 +55,7 @@ class ConformerGenerator:
         return mol
 
     def run(self, list_of_mols):
-        with tqdm(total=len(list_of_mols), desc="Generating conformers") as progress_bar:
+        with tqdm(total=len(list_of_mols), desc="Generating conformers", disable=not self.verbose) as progress_bar:
             # Define a custom callback to update the tqdm bar
             class TqdmCallback(joblib.parallel.BatchCompletionCallBack):
                 def __call__(self, *args, **kwargs):
