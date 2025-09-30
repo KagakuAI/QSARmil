@@ -1,7 +1,6 @@
 import numpy as np
 from rdkit.Chem import Descriptors3D
 
-
 def validate_desc_vector(x):
 
     # nan values
@@ -14,7 +13,6 @@ def validate_desc_vector(x):
         x = np.where(abs(x) <= 10 ** 25, x, imp)
     return x
 
-
 class RDKitDescriptor3D:
     def __init__(self, desc_name=None):
         super().__init__()
@@ -22,13 +20,10 @@ class RDKitDescriptor3D:
         if desc_name:
             self.transformer = getattr(Descriptors3D.rdMolDescriptors, desc_name)
 
-
-
     def __call__(self, mol, conformer_id=None):
         x = np.array(self.transformer(mol, confId=conformer_id))
         x = validate_desc_vector(x)
         return x
-
 
 class RDKitGEOM(RDKitDescriptor3D):
     def __init__(self):

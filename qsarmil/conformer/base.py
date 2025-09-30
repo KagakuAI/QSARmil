@@ -4,7 +4,6 @@ from rdkit.Chem import AllChem, rdMolAlign
 from rdkit import RDLogger
 from joblib import Parallel, delayed
 from qsarmil.utils.logging import FailedMolecule, FailedConformer
-
 RDLogger.DisableLog('rdApp.*')
 
 
