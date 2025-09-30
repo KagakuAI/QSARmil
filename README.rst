@@ -35,9 +35,7 @@ Installation
 
 .. code-block:: bash
 
-    git clone https://github.com/KagakuAI/QSARmil.git
-    conda env create -f QSARmil/conda/qsarmil_linux.yml
-    conda activate qsarmil
+    pip install qsarmil
 
 The installed ``QSARmil`` environment can then be added to the Jupyter platform:
 
