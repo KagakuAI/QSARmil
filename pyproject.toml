@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "qsarmil"
 version = "0.3.0"
 description = "Molecular multi-instance machine learning"
-readme = "README.rst"
+readme = { file = "README.rst", content-type = "text/x-rst" }
 license = { text = "MIT" }
 authors = [
   { name = "Dmitry Zankov", email = "dvzankov@gmail.com" }

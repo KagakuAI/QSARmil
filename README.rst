@@ -1,6 +1,6 @@
 
 QSARmil - Molecular Multi-Instance Machine Learning
-============================================
+============================================================
 ``QSARmil`` is a package for designing pipelines for building QSAR models with multi-instance machine learning algorithms.
 
 Introduction
