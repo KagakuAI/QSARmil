@@ -37,15 +37,7 @@ Installation
 
     pip install qsarmil
 
-The installed ``QSARmil`` environment can then be added to the Jupyter platform:
-
-.. code-block:: bash
-
-    conda install ipykernel
-    python -m ipykernel install --user --name qsarmil --display-name "qsarmil"
-
-
 Quick start
 ------------
 
-See the examples of ``QSARmil`` application for different tasks in the `tutorial collection <tutorials>`_ .
+See the examples of ``QSARmil`` application for different tasks in the `tutorial collection <notebooks>`_ .
