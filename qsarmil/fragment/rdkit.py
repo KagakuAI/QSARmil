@@ -39,7 +39,7 @@ class FragmentGenerator:
             joblib.parallel.BatchCompletionCallBack = TqdmCallback
 
             try:
-                results = Parallel(n_jobs=self.num_cpu)(
+                results = Parallel(n_jobs=self.num_cpu, backend='threading')(
                     delayed(self._generate_fragments)(mol) for mol in list_of_mols
                 )
             finally:

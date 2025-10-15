@@ -55,7 +55,7 @@ class ConformerGenerator:
 
     def run(self, list_of_mols):
         with tqdm(total=len(list_of_mols), desc="Generating conformers", disable=not self.verbose) as progress_bar:
-            # Define a custom callback to update the tqdm bar
+
             class TqdmCallback(joblib.parallel.BatchCompletionCallBack):
                 def __call__(self, *args, **kwargs):
                     progress_bar.update(self.batch_size)
@@ -66,11 +66,11 @@ class ConformerGenerator:
             joblib.parallel.BatchCompletionCallBack = TqdmCallback
 
             try:
-                results = Parallel(n_jobs=self.num_cpu)(
+                results = Parallel(n_jobs=self.num_cpu, backend='threading')(
                     delayed(self._generate_conformers)(mol) for mol in list_of_mols
                 )
             finally:
-                joblib.parallel.BatchCompletionCallBack = old_callback  # Restore
+                joblib.parallel.BatchCompletionCallBack = old_callback
 
         return results
 
