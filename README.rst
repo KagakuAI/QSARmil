@@ -1,5 +1,5 @@
 
-QSARmil - Molecular Multi-Instance Machine Learning
+QSARmil - molecular multi-instance machine learning
 ============================================================
 ``QSARmil`` is a package for designing pipelines for building QSAR models with multi-instance machine learning algorithms.
 
@@ -30,8 +30,6 @@ You can find the pipelines for modelling these tasks in a separate project, `SEQ
 
 Installation
 ------------
-
-``QSARmil`` can be installed using conda/mamba package managers.
 
 .. code-block:: bash
 
