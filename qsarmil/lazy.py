@@ -171,9 +171,10 @@ def calc_descriptors(descriptor, df_data, conf=None):
     return smi, x, y
 
 class MILBuilder:
-    def __init__(self, descriptor, estimator, model_name, model_folder, n_cpu=1):
+    def __init__(self, descriptor, estimator, hopt, model_name, model_folder, n_cpu=1):
         self.descriptor = descriptor
         self.estimator = estimator
+        self.hopt = hopt
         self.model_name = model_name
         self.model_folder = model_folder
         self.n_cpu = n_cpu
@@ -195,6 +196,8 @@ class MILBuilder:
 
         # 3. Train estimator
         estimator = self.estimator
+        if self.hopt:
+            estimator.hopt(x_train_scaled, y_train, verbose=False)
         estimator.fit(x_train_scaled, y_train)
 
         # 4. Make val/test predictions
@@ -211,8 +214,9 @@ class MILBuilder:
         return self
 
 class LazyMIL:
-    def __init__(self, task="regression", output_folder=None, n_cpu=1, verbose=True):
+    def __init__(self, task="regression", hopt=False, output_folder=None, n_cpu=1, verbose=True):
         self.task = task
+        self.hopt = hopt
         self.output_folder = output_folder
         self.n_cpu = n_cpu
         self.verbose = verbose
@@ -245,6 +249,7 @@ class LazyMIL:
                 model = MILBuilder(
                     descriptor=desc_name,
                     estimator=estimator,
+                    hopt=self.hopt,
                     model_name=model_name,
                     model_folder=self.output_folder,
                     n_cpu=self.n_cpu,
