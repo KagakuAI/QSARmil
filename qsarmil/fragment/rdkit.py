@@ -9,13 +9,38 @@ RDLogger.DisableLog('rdApp.*')
 
 
 class FragmentGenerator:
+    """Generate molecular fragments using RDKit BRICS decomposition.
+
+    Converts molecules into sets of fragments, with optional parallelization
+    and progress tracking.
+
+    Args:
+        num_cpu (int): Number of CPU threads for parallel processing.
+        verbose (bool): Whether to display a progress bar.
+    """
+
     def __init__(self, num_cpu=1, verbose=True):
+        """Initialize the FragmentGenerator.
+
+        Args:
+            num_cpu (int): Number of CPU threads.
+            verbose (bool): Whether to show progress bar.
+        """
         super().__init__()
 
         self.num_cpu = num_cpu
         self.verbose = verbose
 
     def _generate_fragments(self, mol):
+        """Generate fragments for a single molecule using BRICS decomposition.
+
+        Args:
+            mol (rdkit.Chem.Mol or FailedMolecule/FailedConformer): Input molecule.
+
+        Returns:
+            list[rdkit.Chem.Mol] or FailedMolecule: List of fragment molecules,
+            or a FailedMolecule if fragmentation failed.
+        """
         if isinstance(mol, (FailedMolecule, FailedConformer)):
             return mol
         try:
@@ -28,6 +53,14 @@ class FragmentGenerator:
         return frags
 
     def run(self, list_of_mols):
+        """Generate fragments for a list of molecules in parallel with progress tracking.
+
+        Args:
+            list_of_mols (list): List of RDKit molecules to fragment.
+
+        Returns:
+            list: List of fragment lists or FailedMolecule objects for each input molecule.
+        """
         with tqdm(total=len(list_of_mols), desc="Generating fragments", disable=not self.verbose) as progress_bar:
             class TqdmCallback(joblib.parallel.BatchCompletionCallBack):
                 def __call__(self, *args, **kwargs):
