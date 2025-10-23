@@ -1,11 +1,12 @@
 import joblib
-from tqdm import tqdm
-from rdkit import RDLogger
 from joblib import Parallel, delayed
-from qsarmil.utils.logging import FailedMolecule, FailedConformer
-from rdkit import Chem
+from rdkit import Chem, RDLogger
 from rdkit.Chem import BRICS
-RDLogger.DisableLog('rdApp.*')
+from tqdm import tqdm
+
+from qsarmil.utils.logging import FailedConformer, FailedMolecule
+
+RDLogger.DisableLog("rdApp.*")
 
 
 class FragmentGenerator:
@@ -53,7 +54,8 @@ class FragmentGenerator:
         return frags
 
     def run(self, list_of_mols):
-        """Generate fragments for a list of molecules in parallel with progress tracking.
+        """Generate fragments for a list of molecules in parallel with progress
+        tracking.
 
         Args:
             list_of_mols (list): List of RDKit molecules to fragment.
@@ -62,6 +64,7 @@ class FragmentGenerator:
             list: List of fragment lists or FailedMolecule objects for each input molecule.
         """
         with tqdm(total=len(list_of_mols), desc="Generating fragments", disable=not self.verbose) as progress_bar:
+
             class TqdmCallback(joblib.parallel.BatchCompletionCallBack):
                 def __call__(self, *args, **kwargs):
                     progress_bar.update(self.batch_size)
@@ -72,7 +75,7 @@ class FragmentGenerator:
             joblib.parallel.BatchCompletionCallBack = TqdmCallback
 
             try:
-                results = Parallel(n_jobs=self.num_cpu, backend='threading')(
+                results = Parallel(n_jobs=self.num_cpu, backend="threading")(
                     delayed(self._generate_fragments)(mol) for mol in list_of_mols
                 )
             finally:

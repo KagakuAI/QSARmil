@@ -1,12 +1,14 @@
 import joblib
-from tqdm import tqdm
 import numpy as np
-from qsarmil.utils.logging import FailedDescriptor
 from joblib import Parallel, delayed
+from tqdm import tqdm
+
+from qsarmil.utils.logging import FailedDescriptor
 
 
 class DescriptorWrapper:
-    """Wrapper to compute molecular descriptors for multiple conformers in parallel.
+    """Wrapper to compute molecular descriptors for multiple conformers in
+    parallel.
 
     Converts a molecule into a "bag" of descriptor vectors, one per conformer,
     with optional parallelization and progress tracking.
@@ -32,7 +34,8 @@ class DescriptorWrapper:
         self.verbose = verbose
 
     def _ce2bag(self, mol):
-        """Convert a molecule into a bag of descriptor vectors (one per conformer).
+        """Convert a molecule into a bag of descriptor vectors (one per
+        conformer).
 
         Args:
             mol (rdkit.Chem.Mol): Molecule with one or more conformers.
@@ -67,7 +70,8 @@ class DescriptorWrapper:
         return x
 
     def run(self, list_of_mols):
-        """Compute descriptors for a list of molecules in parallel with progress tracking.
+        """Compute descriptors for a list of molecules in parallel with
+        progress tracking.
 
         Args:
             list_of_mols (list): List of RDKit molecules to compute descriptors for.
@@ -87,7 +91,7 @@ class DescriptorWrapper:
             joblib.parallel.BatchCompletionCallBack = TqdmCallback
 
             try:
-                results = Parallel(n_jobs=self.num_cpu, backend='threading')(
+                results = Parallel(n_jobs=self.num_cpu, backend="threading")(
                     delayed(self._transform)(mol) for mol in list_of_mols
                 )
             finally:

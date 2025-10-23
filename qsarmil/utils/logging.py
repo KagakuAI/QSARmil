@@ -1,6 +1,6 @@
-from rdkit import Chem
-from rdkit import RDLogger
-RDLogger.DisableLog('rdApp.*')
+from rdkit import Chem, RDLogger
+
+RDLogger.DisableLog("rdApp.*")
 
 
 class FailedMolecule:
@@ -25,7 +25,7 @@ class FailedMolecule:
         Returns:
             str: Error message describing the parsing failure.
         """
-        return f'{self.smiles} -> SMILES parsing failed'
+        return f"{self.smiles} -> SMILES parsing failed"
 
 
 class FailedConformer:
@@ -51,7 +51,7 @@ class FailedConformer:
             str: Error message describing the conformer generation failure.
         """
         smi = Chem.MolToSmiles(self.mol)
-        return f'{smi} -> conformer generation failed'
+        return f"{smi} -> conformer generation failed"
 
 
 class FailedDescriptor:
@@ -77,4 +77,4 @@ class FailedDescriptor:
             str: Error message describing the descriptor calculation failure.
         """
         smi = Chem.MolToSmiles(self.mol)
-        return f'{smi} -> descriptor calculation failed'
+        return f"{smi} -> descriptor calculation failed"

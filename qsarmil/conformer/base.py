@@ -1,10 +1,12 @@
 import joblib
-from tqdm import tqdm
-from rdkit.Chem import AllChem, rdMolAlign
-from rdkit import RDLogger
 from joblib import Parallel, delayed
-from qsarmil.utils.logging import FailedMolecule, FailedConformer
-RDLogger.DisableLog('rdApp.*')
+from rdkit import RDLogger
+from rdkit.Chem import AllChem, rdMolAlign
+from tqdm import tqdm
+
+from qsarmil.utils.logging import FailedConformer, FailedMolecule
+
+RDLogger.DisableLog("rdApp.*")
 
 
 class ConformerGenerator:
@@ -122,7 +124,7 @@ class ConformerGenerator:
             joblib.parallel.BatchCompletionCallBack = TqdmCallback
 
             try:
-                results = Parallel(n_jobs=self.num_cpu, backend='threading')(
+                results = Parallel(n_jobs=self.num_cpu, backend="threading")(
                     delayed(self._generate_conformers)(mol) for mol in list_of_mols
                 )
             finally:
@@ -173,7 +175,7 @@ def filter_by_rmsd(mol, rmsd_thresh=2):
     for i, conf_id_i in enumerate(conf_ids):
         if conf_id_i in to_remove:
             continue
-        for conf_id_j in conf_ids[i + 1:]:
+        for conf_id_j in conf_ids[i + 1 :]:
             if conf_id_j in to_remove:
                 continue
             rmsd = rdMolAlign.GetConformerRMS(mol, conf_id_i, conf_id_j, prealigned=False)

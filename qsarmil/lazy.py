@@ -1,56 +1,35 @@
+import copy
+import hashlib
 import os
 import shutil
 import tempfile
-import hashlib
 import warnings
-from typing import List, Tuple, Dict, Any, Optional
-import copy
+from typing import Any, Dict, List, Optional, Tuple
 
 warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
-from rdkit import Chem
 from filelock import FileLock
-
-from molfeat.calc import Pharmacophore3D, USRDescriptors, ElectroShapeDescriptors
-
-from qsarmil.conformer import RDKitConformerGenerator
-from qsarmil.descriptor.rdkit import (RDKitGEOM,
-                                      RDKitAUTOCORR,
-                                      RDKitRDF,
-                                      RDKitMORSE,
-                                      RDKitWHIM,
-                                      RDKitGETAWAY)
-
-from qsarmil.utils.logging import FailedConformer, FailedDescriptor
-from qsarmil.descriptor.wrapper import DescriptorWrapper
-
+from milearn.network.classifier import (AdditiveAttentionNetworkClassifier, BagNetworkClassifier,
+                                        BagWrapperMLPNetworkClassifier, DynamicPoolingNetworkClassifier,
+                                        HopfieldAttentionNetworkClassifier, InstanceNetworkClassifier,
+                                        InstanceWrapperMLPNetworkClassifier, SelfAttentionNetworkClassifier)
+# Network hparams
+# MIL networks
+# MIL network wrappers
+from milearn.network.regressor import (AdditiveAttentionNetworkRegressor, BagNetworkRegressor,
+                                       BagWrapperMLPNetworkRegressor, DynamicPoolingNetworkRegressor,
+                                       HopfieldAttentionNetworkRegressor, InstanceNetworkRegressor,
+                                       InstanceWrapperMLPNetworkRegressor, SelfAttentionNetworkRegressor)
 # Preprocessing
 from milearn.preprocessing import BagMinMaxScaler
+from molfeat.calc import ElectroShapeDescriptors, Pharmacophore3D, USRDescriptors
+from rdkit import Chem
 
-# Network hparams
-from milearn.network.module.hopt import DEFAULT_PARAM_GRID
-
-# MIL network wrappers
-from milearn.network.regressor import BagWrapperMLPNetworkRegressor, InstanceWrapperMLPNetworkRegressor
-from milearn.network.classifier import BagWrapperMLPNetworkClassifier, InstanceWrapperMLPNetworkClassifier
-
-# MIL networks
-from milearn.network.regressor import (InstanceNetworkRegressor,
-                                       BagNetworkRegressor,
-                                       AdditiveAttentionNetworkRegressor,
-                                       SelfAttentionNetworkRegressor,
-                                       HopfieldAttentionNetworkRegressor,
-                                       DynamicPoolingNetworkRegressor)
-
-from milearn.network.classifier import (InstanceNetworkClassifier,
-                                        BagNetworkClassifier,
-                                        AdditiveAttentionNetworkClassifier,
-                                        SelfAttentionNetworkClassifier,
-                                        HopfieldAttentionNetworkClassifier,
-                                        DynamicPoolingNetworkClassifier)
-
+from qsarmil.conformer import RDKitConformerGenerator
+from qsarmil.descriptor.rdkit import RDKitAUTOCORR, RDKitGEOM, RDKitGETAWAY, RDKitMORSE, RDKitRDF, RDKitWHIM
+from qsarmil.descriptor.wrapper import DescriptorWrapper
 
 # ==========================================================
 # Configuration
@@ -64,54 +43,46 @@ DESCRIPTORS: Dict[str, DescriptorWrapper] = {
     "MolFeatUSRD": DescriptorWrapper(USRDescriptors()),
     "MolFeatElectroShape": DescriptorWrapper(ElectroShapeDescriptors()),
     "RDKitGETAWAY": DescriptorWrapper(RDKitGETAWAY()),  # can be long
-    "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory='pmapper')),  # can be long
+    "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory="pmapper")),  # can be long
 }
 
 REGRESSORS = {
     "MeanBagWrapperMLPNetworkRegressor": BagWrapperMLPNetworkRegressor(pool="mean"),
     "MeanInstanceWrapperMLPNetworkRegressor": InstanceWrapperMLPNetworkRegressor(pool="mean"),
-
     # classic mil networks
     "MeanBagNetworkRegressor": BagNetworkRegressor(pool="mean"),
     "MeanInstanceNetworkRegressor": InstanceNetworkRegressor(pool="mean"),
-
     # attention mil networks
     "AdditiveAttentionNetworkRegressor": AdditiveAttentionNetworkRegressor(),
     "SelfAttentionNetworkRegressor": SelfAttentionNetworkRegressor(),
     "HopfieldAttentionNetworkRegressor": HopfieldAttentionNetworkRegressor(),
-
     # other mil networks
-    "DynamicPoolingNetworkRegressor": DynamicPoolingNetworkRegressor()
+    "DynamicPoolingNetworkRegressor": DynamicPoolingNetworkRegressor(),
 }
 
 CLASSIFIERS = {
     "MeanBagWrapperMLPNetworkClassifier": BagWrapperMLPNetworkClassifier(pool="mean"),
     "MeanInstanceWrapperMLPNetworkClassifier": InstanceWrapperMLPNetworkClassifier(pool="mean"),
-
     # classic mil networks
     "MeanBagNetworkClassifier": BagNetworkClassifier(pool="mean"),
     "MeanInstanceNetworkClassifier": InstanceNetworkClassifier(pool="mean"),
-
     # attention mil networks
     "AdditiveAttentionNetworkClassifier": AdditiveAttentionNetworkClassifier(),
     "SelfAttentionNetworkClassifier": SelfAttentionNetworkClassifier(),
     "HopfieldAttentionNetworkClassifier": HopfieldAttentionNetworkClassifier(),
-
     # other mil networks
-    "DynamicPoolingNetworkClassifier": DynamicPoolingNetworkClassifier()
+    "DynamicPoolingNetworkClassifier": DynamicPoolingNetworkClassifier(),
 }
 
 
 # ==========================================================
 # Utility Functions
 # ==========================================================
-def write_model_predictions(model_name: str,
-                            smiles_list: List[str],
-                            y_true: List[Any],
-                            y_pred: List[Any],
-                            output_path: str) -> None:
-    """
-    Append or add new model predictions as a column to a CSV file while preserving existing column order.
+def write_model_predictions(
+    model_name: str, smiles_list: List[str], y_true: List[Any], y_pred: List[Any], output_path: str
+) -> None:
+    """Append or add new model predictions as a column to a CSV file while
+    preserving existing column order.
 
     - If `output_path` exists, the function will add `model_name` column (or replace it if present).
       It will **not** reorder existing columns (except to append the new one at the end if it wasn't present).
@@ -134,15 +105,13 @@ def write_model_predictions(model_name: str,
                     tmp = pd.DataFrame({"SMILES": smiles_list, model_name: y_pred, "Y_TRUE_NEW": y_true})
                     df = df.merge(tmp[["SMILES", model_name]], on="SMILES", how="left")
                 except Exception:
-                    raise ValueError(f"Length mismatch when writing {output_path}: existing {len(df)} vs new {len(new_col)}")
+                    raise ValueError(
+                        f"Length mismatch when writing {output_path}: existing {len(df)} vs new {len(new_col)}"
+                    )
             else:
                 df[model_name] = new_col.values
         else:
-            df = pd.DataFrame({
-                "SMILES": smiles_list,
-                "Y_TRUE": y_true,
-                model_name: y_pred
-            })
+            df = pd.DataFrame({"SMILES": smiles_list, "Y_TRUE": y_true, model_name: y_pred})
 
         # Ensure SMILES and Y_TRUE remain first columns and preserve existing order for others.
         cols = [c for c in df.columns if c not in {"SMILES", "Y_TRUE"}]
@@ -152,8 +121,8 @@ def write_model_predictions(model_name: str,
 
 
 def replace_nan_with_column_mean(bags: List[np.ndarray]) -> List[np.ndarray]:
-    """
-    Replace NaN values in each bag's instances with the column means computed across all instances.
+    """Replace NaN values in each bag's instances with the column means
+    computed across all instances.
 
     NOTE: This function keeps the original behavior from your code. You asked to ignore the
     robustness fixes that handle the case where an entire column is NaN.
@@ -179,9 +148,8 @@ def replace_nan_with_column_mean(bags: List[np.ndarray]) -> List[np.ndarray]:
 # Descriptor & Conformer helpers
 # ==========================================================
 def gen_conformers(smi_list: List[str], n_cpu: int = 1) -> List[Any]:
-    """
-    Generate conformers for a list of SMILES strings using RDKitConformerGenerator.
-    """
+    """Generate conformers for a list of SMILES strings using
+    RDKitConformerGenerator."""
     mol_list = []
     for smi in smi_list:
         mol = Chem.MolFromSmiles(smi)
@@ -192,10 +160,10 @@ def gen_conformers(smi_list: List[str], n_cpu: int = 1) -> List[Any]:
     return conf_list
 
 
-def calc_descriptors(descriptor: DescriptorWrapper, df_data: pd.DataFrame, conf: Optional[List[Any]] = None) -> Tuple[List[str], List[np.ndarray], pd.Series]:
-    """
-    Calculate descriptors using a DescriptorWrapper for a dataset table.
-    """
+def calc_descriptors(
+    descriptor: DescriptorWrapper, df_data: pd.DataFrame, conf: Optional[List[Any]] = None
+) -> Tuple[List[str], List[np.ndarray], pd.Series]:
+    """Calculate descriptors using a DescriptorWrapper for a dataset table."""
     smi = list(df_data.iloc[:, 0])
     y = df_data.iloc[:, 1]
     x = descriptor.run(conf)
@@ -207,18 +175,19 @@ def calc_descriptors(descriptor: DescriptorWrapper, df_data: pd.DataFrame, conf:
 # ModelBuilder Class
 # ==========================================================
 class MILBuilder:
-    """
-    Encapsulates training and prediction of a single MIL model (descriptor + estimator).
-    """
+    """Encapsulates training and prediction of a single MIL model (descriptor +
+    estimator)."""
 
-    def __init__(self,
-                 descriptor_name: str,
-                 descriptor_obj: DescriptorWrapper,
-                 estimator: Any,
-                 hopt: bool,
-                 model_name: str,
-                 model_folder: str,
-                 n_cpu: int = 1):
+    def __init__(
+        self,
+        descriptor_name: str,
+        descriptor_obj: DescriptorWrapper,
+        estimator: Any,
+        hopt: bool,
+        model_name: str,
+        model_folder: str,
+        n_cpu: int = 1,
+    ):
         self.descriptor_name = descriptor_name
         self.descriptor_obj = descriptor_obj
         self.estimator = estimator
@@ -228,9 +197,7 @@ class MILBuilder:
         self.n_cpu = n_cpu
 
     def scale_descriptors(self, x_train: List[np.ndarray], x_val: List[np.ndarray], x_test: List[np.ndarray]):
-        """
-        Fit BagMinMaxScaler on x_train and transform train/val/test bags.
-        """
+        """Fit BagMinMaxScaler on x_train and transform train/val/test bags."""
         scaler = BagMinMaxScaler()
         scaler.fit(x_train)
         return scaler.transform(x_train), scaler.transform(x_val), scaler.transform(x_test)
@@ -284,7 +251,14 @@ class LazyMIL:
       - trains each model and writes predictions.
     """
 
-    def __init__(self, task: str = "regression", hopt: bool = False, output_folder: Optional[str] = None, n_cpu: int = 1, verbose: bool = True):
+    def __init__(
+        self,
+        task: str = "regression",
+        hopt: bool = False,
+        output_folder: Optional[str] = None,
+        n_cpu: int = 1,
+        verbose: bool = True,
+    ):
         self.task = task
         self.hopt = hopt
         self.output_folder = output_folder
@@ -300,18 +274,20 @@ class LazyMIL:
         os.makedirs(self.output_folder, exist_ok=True)
 
     def run(self, df_train: pd.DataFrame, df_val: pd.DataFrame, df_test: pd.DataFrame):
-        """
-        Main entry point.
-        """
+        """Main entry point."""
         # 1. Generate conformers for each split
         conf_dict = {
             "df_train": gen_conformers(smi_list=list(df_train.iloc[:, 0]), n_cpu=self.n_cpu),
             "df_val": gen_conformers(smi_list=list(df_val.iloc[:, 0]), n_cpu=self.n_cpu),
-            "df_test": gen_conformers(smi_list=list(df_test.iloc[:, 0]), n_cpu=self.n_cpu)
+            "df_test": gen_conformers(smi_list=list(df_test.iloc[:, 0]), n_cpu=self.n_cpu),
         }
 
         # 2. Compute descriptors for every descriptor in DESCRIPTORS for each split
-        desc_dict: Dict[str, Dict[str, Tuple[List[str], List[np.ndarray], pd.Series]]] = {"df_train": {}, "df_val": {}, "df_test": {}}
+        desc_dict: Dict[str, Dict[str, Tuple[List[str], List[np.ndarray], pd.Series]]] = {
+            "df_train": {},
+            "df_val": {},
+            "df_test": {},
+        }
 
         # Select estimator pool based on task
         estimator_pool = REGRESSORS if self.task == "regression" else CLASSIFIERS
