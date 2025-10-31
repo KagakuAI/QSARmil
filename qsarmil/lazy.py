@@ -24,10 +24,11 @@ from milearn.network.regressor import (AdditiveAttentionNetworkRegressor, BagNet
                                        InstanceWrapperMLPNetworkRegressor, SelfAttentionNetworkRegressor)
 # Preprocessing
 from milearn.preprocessing import BagMinMaxScaler
+from milearn.network.module.hopt import DEFAULT_PARAM_GRID
 from molfeat.calc import ElectroShapeDescriptors, Pharmacophore3D, USRDescriptors
 from rdkit import Chem
 
-from qsarmil.conformer import RDKitConformerGenerator
+from qsarmil.conformer.rdkit import RDKitConformerGenerator
 from qsarmil.descriptor.rdkit import RDKitAUTOCORR, RDKitGEOM, RDKitGETAWAY, RDKitMORSE, RDKitRDF, RDKitWHIM
 from qsarmil.descriptor.wrapper import DescriptorWrapper
 
@@ -225,7 +226,7 @@ class MILBuilder:
         # 3. Train estimator — allow estimators that implement hopt
         estimator = self.estimator
         if self.hopt and hasattr(estimator, "hopt"):
-            estimator.hopt(x_train_scaled, y_train, verbose=False)
+            estimator.hopt(x_train_scaled, y_train, param_grid=DEFAULT_PARAM_GRID, verbose=False)
         estimator.fit(x_train_scaled, y_train)
 
         # 4. Make val/test predictions
