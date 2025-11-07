@@ -160,16 +160,24 @@ def gen_conformers(smi_list: List[str], n_cpu: int = 1) -> List[Any]:
     conf_list = conf_gen.run(mol_list)
     return conf_list
 
-
 def calc_descriptors(
     descriptor: DescriptorWrapper, df_data: pd.DataFrame, conf: Optional[List[Any]] = None
 ) -> Tuple[List[str], List[np.ndarray], pd.Series]:
-    """Calculate descriptors using a DescriptorWrapper for a dataset table."""
+
     smi = list(df_data.iloc[:, 0])
-    y = df_data.iloc[:, 1]
+    y = df_data.iloc[:, 1].values  # <- ensure numpy, not Series
     x = descriptor.run(conf)
-    x = replace_nan_with_column_mean(x)
-    return smi, x, y
+
+    # Ensure all bags are np.ndarray, not Series or objects
+    cleaned = []
+    for bag in x:
+        bag = np.asarray(bag, dtype=float)  # force numeric
+        if bag.ndim == 1:                   # descriptors that return 1D -> convert to (1, n_features)
+            bag = bag.reshape(1, -1)
+        cleaned.append(bag)
+
+    cleaned = replace_nan_with_column_mean(cleaned)
+    return smi, cleaned, y
 
 
 # ==========================================================
@@ -325,12 +333,9 @@ class LazyMIL:
                 model.run(desc_dict)
             except Exception as exc:
                 # Log error but continue with remaining models
-                warnings.warn(f"Model {model.model_name} failed with error: {exc}")
+                print(f"Model {model.model_name} failed with error: {exc}")
             n += 1
             if self.verbose:
                 print(f"{n} / {total} — {model.model_name}", end="\r")
-
-        if self.verbose:
-            print()  # newline after progress
 
         return self
