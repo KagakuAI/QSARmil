@@ -6,52 +6,26 @@ from tqdm import tqdm
 from qsarmil.utils.logging import FailedDescriptor
 
 
-class DescriptorWrapper:
-    """Wrapper to compute molecular descriptors for multiple conformers in
-    parallel.
+class DescriptorConcat:
+    """Concatenate different descriptors"""
 
-    Converts a molecule into a "bag" of descriptor vectors, one per conformer,
-    with optional parallelization and progress tracking.
+    def __init__(self, transformer_list, num_cpu=2, verbose=True):
 
-    Args:
-        transformer (callable): Descriptor function or object that accepts a molecule
-            and optional conformer ID, returning a descriptor vector.
-        num_cpu (int): Number of CPU threads for parallel processing.
-        verbose (bool): Whether to display a progress bar.
-    """
-
-    def __init__(self, transformer, num_cpu=2, verbose=True):
-        """Initialize the descriptor wrapper.
-
-        Args:
-            transformer (callable): Descriptor function or object.
-            num_cpu (int): Number of CPU threads.
-            verbose (bool): Whether to show progress bar.
-        """
         super().__init__()
-        self.transformer = transformer
+        self.transformer_list = transformer_list
         self.num_cpu = num_cpu
         self.verbose = verbose
 
-    def __call__(self, mol, *args, **kwargs):
-        return self._transform(mol)
-
     def _ce2bag(self, mol):
-        """Convert a molecule into a bag of descriptor vectors (one per
-        conformer).
 
-        Args:
-            mol (rdkit.Chem.Mol): Molecule with one or more conformers.
-
-        Returns:
-            np.ndarray: Array of descriptor vectors, shape (num_conformers, descriptor_length).
-        """
-        bag = []
-        for conf in mol.GetConformers():
-            x = self.transformer(mol, conformer_id=conf.GetId())
-            bag.append(x.flatten())
-
-        return np.array(bag)
+        bag_concat = []
+        for transformer in self.transformer_list:
+            bag = []
+            for conf in mol.GetConformers():
+                bag = transformer(mol, conformer_id=conf.GetId())
+            bag_concat.append(bag)
+        bag_concat = np.hstack(bag_concat)
+        return np.array(bag_concat)
 
     def _transform(self, mol):
         """Safely compute descriptors for a single molecule.
