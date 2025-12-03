@@ -37,6 +37,7 @@ from qsarmil.descriptor.rdkit import RDKitAUTOCORR, RDKitGEOM, RDKitGETAWAY, RDK
 from qsarmil.descriptor.wrapper import DescriptorWrapper
 from qsarmil.descriptor.concat import DescriptorConcat
 from .utils.logging import OutputSuppressor
+from .utils.logging import FailedConformer, FailedDescriptor
 
 # ==========================================================
 # Configuration
@@ -100,6 +101,36 @@ def run_in_subprocess(func, *args, **kwargs):
 
     return result
 
+def conf_gen_stat(conf_train, conf_val, conf_test):
+
+    # 1. Calculate the succes number
+    num_mol_train = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_train)
+    num_mol_val = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_val)
+    num_mol_test = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_test)
+
+    # 2. Calculate the unique number of conformers
+    num_conf_train = list(set([i.GetNumConformers() for i in conf_train]))
+    num_conf_val = list(set([i.GetNumConformers() for i in conf_val]))
+    num_conf_test = list(set([i.GetNumConformers() for i in conf_test]))
+
+    # 3. Prepare results
+    str_train = f"Generated number of training conformers: {len(conf_train)}/{num_mol_train}/{num_conf_train}"
+    str_val = f"Generated number of val conformers: {len(conf_val)}/{num_mol_val}/{num_conf_val}"
+    str_test = f"Generated number of test conformers: {len(conf_test)}/{num_mol_test}/{num_conf_test}"
+    str_final = f"{str_train}\n{str_val}\n{str_test}"
+    return str_final
+
+
+def gen_conformers(smi_list, n_cpu=1):
+    """Generate conformers for a list of SMILES strings using RDKitConformerGenerator."""
+    mol_list = []
+    for smi in smi_list:
+        mol = Chem.MolFromSmiles(smi)
+        mol_list.append(mol)
+    conf_gen = RDKitConformerGenerator(num_conf=5, num_cpu=n_cpu, verbose=False)
+    conf_list = conf_gen.run(mol_list)
+    return conf_list
+
 def clean_descriptors(bags: List[np.ndarray]) -> List[np.ndarray]:
     """Replace NaN values in each bag's instances with the column means computed across all instances."""
 
@@ -118,16 +149,6 @@ def clean_descriptors(bags: List[np.ndarray]) -> List[np.ndarray]:
         cleaned_bags.append(bag)
 
     return cleaned_bags
-
-def gen_conformers(smi_list, n_cpu=1):
-    """Generate conformers for a list of SMILES strings using RDKitConformerGenerator."""
-    mol_list = []
-    for smi in smi_list:
-        mol = Chem.MolFromSmiles(smi)
-        mol_list.append(mol)
-    conf_gen = RDKitConformerGenerator(num_conf=10, num_cpu=n_cpu, verbose=False)
-    conf_list = conf_gen.run(mol_list)
-    return conf_list
 
 def calc_descriptors(conf_list, calculator) :
     calculator.verbose = False
@@ -158,7 +179,7 @@ def build_model(x_train, x_val, x_test, y_train, y_val, y_test, estimator_instan
     pred_val = list(estimator_instance.predict(x_val_scaled))
 
     # 5. Retrain model on full (train + val)
-    x_full, y_full = np.vstack([x_train, x_val]), np.hstack([y_train, y_val])
+    x_full, y_full = x_train + x_val, np.hstack((y_train, y_val))
     x_full_scaled, x_test_scaled = scale_descriptors(x_full, x_test)
     estimator_instance.fit(x_full_scaled, y_full)
     pred_test = list(estimator_instance.predict(x_test_scaled))
@@ -201,6 +222,9 @@ class LazyMIL:
         conf_val = gen_conformers(smi_val, n_cpu=20)
         conf_test = gen_conformers(smi_test, n_cpu=20)
 
+        if self.verbose:
+            print(conf_gen_stat(conf_train, conf_val, conf_test))
+
         total_models = len(DESCRIPTORS) * len(self.estimators_dict)
         current_model = 0
 
@@ -210,9 +234,9 @@ class LazyMIL:
             if self.verbose:
                 print(f"Calculating {desc_name} descriptors...")
 
-            x_train = calc_descriptors(conf_train, desc_calc)
-            x_val = calc_descriptors(conf_val, desc_calc)
-            x_test = calc_descriptors(conf_test, desc_calc)
+            x_train = list(calc_descriptors(conf_train, desc_calc))
+            x_val = list(calc_descriptors(conf_val, desc_calc))
+            x_test = list(calc_descriptors(conf_test, desc_calc))
 
             # 4. Train models
             for est_name, estimator in self.estimators_dict.items():

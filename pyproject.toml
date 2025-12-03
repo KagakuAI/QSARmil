@@ -13,9 +13,10 @@ authors = [
 ]
 
 dependencies = [
-        "mikit-learn",
+        "psutil",
         "rdkit",
         "molfeat",
+        "mikit-learn",
         "py3Dmol",
         "tqdm",
         "huggingface_hub"

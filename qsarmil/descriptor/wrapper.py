@@ -73,15 +73,7 @@ class DescriptorWrapper:
         return x
 
     def run(self, list_of_mols):
-        """Compute descriptors for a list of molecules in parallel with
-        progress tracking.
-
-        Args:
-            list_of_mols (list): List of RDKit molecules to compute descriptors for.
-
-        Returns:
-            list: List of descriptor arrays or FailedDescriptor objects.
-        """
+        """Compute descriptors for a list of molecules in parallel with"""
         with tqdm(total=len(list_of_mols), desc="Calculating descriptors", disable=not self.verbose) as progress_bar:
 
             class TqdmCallback(joblib.parallel.BatchCompletionCallBack):
