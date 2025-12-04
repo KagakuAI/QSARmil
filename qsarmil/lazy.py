@@ -120,7 +120,6 @@ def conf_gen_stat(conf_train, conf_val, conf_test):
     str_final = f"{str_train}\n{str_val}\n{str_test}"
     return str_final
 
-
 def gen_conformers(smi_list, n_cpu=1):
     """Generate conformers for a list of SMILES strings using RDKitConformerGenerator."""
     mol_list = []
