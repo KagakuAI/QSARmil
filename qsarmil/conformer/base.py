@@ -1,8 +1,9 @@
 import joblib
 from joblib import Parallel, delayed
 from rdkit import RDLogger
+from rdkit import Chem
 from rdkit.Chem import AllChem, rdMolAlign
-from tqdm import tqdm
+from qsarmil.utils.ensemble import ConformerEnsemble
 
 from qsarmil.utils.logging import FailedConformer, FailedMolecule
 
@@ -10,15 +11,7 @@ RDLogger.DisableLog("rdApp.*")
 
 
 class ConformerGenerator:
-    """Generate and optimize molecular conformers with optional filtering.
-
-    Args:
-        num_conf (int): Number of conformers to generate per molecule.
-        e_thresh (float, optional): Energy threshold for filtering high-energy conformers.
-        rmsd_thresh (float, optional): RMSD threshold for filtering similar conformers.
-        num_cpu (int): Number of CPU threads to use for parallel processing.
-        verbose (bool): Whether to display a progress bar during generation.
-    """
+    """Generate and optimize molecular conformers with optional filtering."""
 
     def __init__(self, num_conf=10, e_thresh=None, rmsd_thresh=None, num_cpu=1, verbose=True):
         super().__init__()
@@ -30,30 +23,11 @@ class ConformerGenerator:
         self.verbose = verbose
 
     def _prepare_molecule(self, mol):
-        """Prepare the input molecule for conformer generation.
-
-        This method should be implemented in a subclass to perform
-        molecule-specific preprocessing, e.g., sanitization or protonation.
-
-        Args:
-            mol (rdkit.Chem.Mol): Input molecule.
-
-        Returns:
-            rdkit.Chem.Mol: Prepared molecule.
-        """
+        """Prepare the input molecule for conformer generation."""
         return NotImplemented
 
     def _embedd_conformers(self, mol):
-        """Generate multiple 3D conformers for a molecule.
-
-        Uses RDKit's ETKDGv3 method to embed conformers.
-
-        Args:
-            mol (rdkit.Chem.Mol): Molecule to embed conformers for.
-
-        Returns:
-            rdkit.Chem.Mol: Molecule with embedded conformers.
-        """
+        """Generate multiple 3D conformers for a molecule."""
         mol = self._prepare_molecule(mol)
         params = AllChem.ETKDGv3()
         params.numThreads = 0
@@ -62,34 +36,15 @@ class ConformerGenerator:
         AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf, params=params)
         return mol
 
-    def _optimize_conformers(self, mol):
-        """Optimize all conformers of a molecule using UFF force field.
-
-        Args:
-            mol (rdkit.Chem.Mol): Molecule with conformers.
-
-        Returns:
-            rdkit.Chem.Mol: Molecule with optimized conformers.
-        """
-        for conf in mol.GetConformers():
-            AllChem.UFFOptimizeMolecule(mol, confId=conf.GetId())
-        return mol
-
     def _generate_conformers(self, mol):
-        """Generate and optionally filter conformers for a molecule.
+        """Generate and optionally filter conformers for a molecule."""
 
-        Args:
-            mol (rdkit.Chem.Mol or FailedMolecule/FailedConformer): Input molecule.
-
-        Returns:
-            rdkit.Chem.Mol or FailedConformer: Molecule with filtered conformers,
-            or a FailedConformer if generation failed.
-        """
         if isinstance(mol, (FailedMolecule, FailedConformer)):
             return mol
         try:
             mol = self._embedd_conformers(mol)
             if not mol.GetNumConformers():
+                print(f"Conformer generation failed for {Chem.MolToSmiles(mol)}")
                 return FailedConformer(mol)
             mol = self._optimize_conformers(mol)
         except Exception:
@@ -103,46 +58,48 @@ class ConformerGenerator:
 
         return mol
 
+    def _optimize_conformers(self, mol):
+        """Optimize all conformers of a molecule using UFF force field."""
+
+        for conf in mol.GetConformers():
+            AllChem.UFFOptimizeMolecule(mol, confId=conf.GetId())
+        return mol
+
     def run(self, list_of_mols):
-        """Generate conformers for a list of molecules in parallel.
+        """Generate conformers for a list of molecules in parallel."""
 
-        Args:
-            list_of_mols (list): List of RDKit molecules to process.
+        total = len(list_of_mols)
+        completed = [0]
+        verbose = self.verbose
 
-        Returns:
-            list: List of molecules with generated conformers or FailedConformer objects.
-        """
-        with tqdm(total=len(list_of_mols), desc="Generating conformers", disable=not self.verbose) as progress_bar:
+        class PrintCallback(joblib.parallel.BatchCompletionCallBack):
+            def __call__(self, *args, **kwargs):
+                completed[0] += self.batch_size
+                if verbose:
+                    print(f"Generating conformers: {min(completed[0], total)}/{total}", end="\r", flush=True)
+                return super().__call__(*args, **kwargs)
 
-            class TqdmCallback(joblib.parallel.BatchCompletionCallBack):
-                def __call__(self, *args, **kwargs):
-                    progress_bar.update(self.batch_size)
-                    return super().__call__(*args, **kwargs)
+        old_callback = joblib.parallel.BatchCompletionCallBack
+        joblib.parallel.BatchCompletionCallBack = PrintCallback
 
-            # Patch joblib to use our callback
-            old_callback = joblib.parallel.BatchCompletionCallBack
-            joblib.parallel.BatchCompletionCallBack = TqdmCallback
+        try:
+            results = Parallel(n_jobs=self.num_cpu, backend="threading")(
+                delayed(self._generate_conformers)(mol) for mol in list_of_mols
+            )
 
-            try:
-                results = Parallel(n_jobs=self.num_cpu, backend="threading")(
-                    delayed(self._generate_conformers)(mol) for mol in list_of_mols
-                )
-            finally:
-                joblib.parallel.BatchCompletionCallBack = old_callback
+            results = [ConformerEnsemble(i) for i in results]
+        finally:
+            joblib.parallel.BatchCompletionCallBack = old_callback
+
+        if verbose:
+            print(f"Generating conformers: {total}/{total}")
 
         return results
 
 
 def filter_by_energy(mol, e_thresh=1):
-    """Filter conformers of a molecule based on relative energy.
+    """Filter conformers of a molecule based on relative energy."""
 
-    Args:
-        mol (rdkit.Chem.Mol): Molecule with conformers.
-        e_thresh (float): Maximum allowed energy difference from the lowest-energy conformer.
-
-    Returns:
-        rdkit.Chem.Mol: Molecule with high-energy conformers removed.
-    """
     conf_energy_list = []
     for conf in mol.GetConformers():
         ff = AllChem.UFFGetMoleculeForceField(mol, confId=conf.GetId())
@@ -160,15 +117,8 @@ def filter_by_energy(mol, e_thresh=1):
 
 
 def filter_by_rmsd(mol, rmsd_thresh=2):
-    """Filter conformers of a molecule based on RMSD similarity.
+    """Filter conformers of a molecule based on RMSD similarity."""
 
-    Args:
-        mol (rdkit.Chem.Mol): Molecule with conformers.
-        rmsd_thresh (float): Minimum RMSD between conformers to retain both.
-
-    Returns:
-        rdkit.Chem.Mol: Molecule with similar conformers removed.
-    """
     conf_ids = [conf.GetId() for conf in mol.GetConformers()]
     to_remove = set()
 

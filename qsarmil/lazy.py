@@ -1,36 +1,28 @@
-import copy
-import hashlib
 import os
 import time
 import psutil
 import shutil
-import tempfile
-import warnings
-from typing import Any, Dict, List, Optional, Tuple
 from concurrent.futures import ProcessPoolExecutor
-
-warnings.filterwarnings("ignore")
 
 import numpy as np
 import pandas as pd
-from filelock import FileLock
-from milearn.network.classifier import (AdditiveAttentionNetworkClassifier, BagNetworkClassifier,
-                                        BagWrapperMLPNetworkClassifier, DynamicPoolingNetworkClassifier,
-                                        HopfieldAttentionNetworkClassifier, InstanceNetworkClassifier,
-                                        InstanceWrapperMLPNetworkClassifier, SelfAttentionNetworkClassifier)
-# Network hparams
-# MIL networks
-# MIL network wrappers
-from milearn.network.regressor import (AdditiveAttentionNetworkRegressor, BagNetworkRegressor,
-                                       BagWrapperMLPNetworkRegressor, DynamicPoolingNetworkRegressor,
-                                       HopfieldAttentionNetworkRegressor, InstanceNetworkRegressor,
-                                       InstanceWrapperMLPNetworkRegressor, SelfAttentionNetworkRegressor)
-# Preprocessing
+
+from sklearn.linear_model import Ridge, RidgeClassifier
+from sklearn.neural_network import MLPRegressor, MLPClassifier
+from xgboost import XGBRegressor, XGBClassifier
+from sklearn.svm import LinearSVR, LinearSVC
+
+from milearn.wrapper import InstanceWrapper, BagWrapper
+from milearn.network.classifier import AdditiveAttentionNetworkClassifier
+from milearn.network.regressor import AdditiveAttentionNetworkRegressor
+
+# preprocessing
 from milearn.preprocessing import BagMinMaxScaler
 from milearn.network.module.hopt import DEFAULT_PARAM_GRID
-from molfeat.calc import ElectroShapeDescriptors, Pharmacophore3D, USRDescriptors
-from rdkit import Chem
 
+# descriptors
+from rdkit import Chem
+from molfeat.calc import ElectroShapeDescriptors, Pharmacophore3D, USRDescriptors
 from molfeat.trans import MoleculeTransformer
 from qsarmil.conformer.rdkit import RDKitConformerGenerator
 from qsarmil.descriptor.rdkit import RDKitAUTOCORR, RDKitGEOM, RDKitGETAWAY, RDKitMORSE, RDKitRDF, RDKitWHIM
@@ -43,6 +35,7 @@ from .utils.logging import FailedConformer, FailedDescriptor
 # Configuration
 # ==========================================================
 DESCRIPTORS = {
+
     "RDKitGEOM": DescriptorWrapper(RDKitGEOM()),
     "RDKitAUTOCORR": DescriptorWrapper(RDKitAUTOCORR()),
     "RDKitRDF": DescriptorWrapper(RDKitRDF()),
@@ -50,36 +43,44 @@ DESCRIPTORS = {
     "RDKitWHIM": DescriptorWrapper(RDKitWHIM()),
     "MolFeatUSRD": DescriptorWrapper(USRDescriptors()),
     "MolFeatElectroShape": DescriptorWrapper(ElectroShapeDescriptors()),
-    "RDKitGETAWAY": DescriptorWrapper(RDKitGETAWAY()),  # can be long
-    "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory="pmapper")),  # can be long
+    "RDKitGETAWAY": DescriptorWrapper(RDKitGETAWAY()),
+    "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory="pmapper")),
 }
 
 REGRESSORS = {
-    "MeanBagWrapperMLPNetworkRegressor": BagWrapperMLPNetworkRegressor(pool="mean"),
-    "MeanInstanceWrapperMLPNetworkRegressor": InstanceWrapperMLPNetworkRegressor(pool="mean"),
-    # classic mil networks
-    "MeanBagNetworkRegressor": BagNetworkRegressor(pool="mean"),
-    "MeanInstanceNetworkRegressor": InstanceNetworkRegressor(pool="mean"),
+
+    # classic wrappers
+    "MeanBagWrapperRidgeRegressor": BagWrapper(Ridge(), pool="mean"),
+    "MeanBagWrapperLinearSVRRegressor": BagWrapper(LinearSVR(), pool="mean"),
+    "MeanBagWrapperXGBRegressor": BagWrapper(XGBRegressor(), pool="mean"),
+    "MeanBagWrapperMLPRegressor": BagWrapper(MLPRegressor(), pool="mean"),
+
+    # classic wrappers
+    "MeanInstanceWrapperRidgeRegressor": InstanceWrapper(Ridge(), pool="mean"),
+    "MeanInstanceWrapperLinearSVRRegressor": InstanceWrapper(LinearSVR(), pool="mean"),
+    "MeanInstanceWrapperXGBRegressor": InstanceWrapper(XGBRegressor(), pool="mean"),
+    "MeanInstanceWrapperMLPRegressor": InstanceWrapper(MLPRegressor(), pool="mean"),
+
     # attention mil networks
     "AdditiveAttentionNetworkRegressor": AdditiveAttentionNetworkRegressor(),
-    "SelfAttentionNetworkRegressor": SelfAttentionNetworkRegressor(),
-    "HopfieldAttentionNetworkRegressor": HopfieldAttentionNetworkRegressor(),
-    # other mil networks
-    "DynamicPoolingNetworkRegressor": DynamicPoolingNetworkRegressor(),
 }
 
 CLASSIFIERS = {
-    "MeanBagWrapperMLPNetworkClassifier": BagWrapperMLPNetworkClassifier(pool="mean"),
-    "MeanInstanceWrapperMLPNetworkClassifier": InstanceWrapperMLPNetworkClassifier(pool="mean"),
-    # classic mil networks
-    "MeanBagNetworkClassifier": BagNetworkClassifier(pool="mean"),
-    "MeanInstanceNetworkClassifier": InstanceNetworkClassifier(pool="mean"),
+
+    # classic wrappers
+    "MeanBagWrapperRidgeClassifier": BagWrapper(RidgeClassifier(), pool="mean"),
+    "MeanBagWrapperLinearSVCClassifier": BagWrapper(LinearSVC(), pool="mean"),
+    "MeanBagWrapperXGBClassifier": BagWrapper(XGBClassifier(), pool="mean"),
+    "MeanBagWrapperMLPClassifier": BagWrapper(MLPClassifier(), pool="mean"),
+
+    # classic wrappers
+    "MeanInstanceWrapperRidgeClassifier": InstanceWrapper(RidgeClassifier(), pool="mean"),
+    "MeanInstanceWrapperLinearSVCClassifier": InstanceWrapper(LinearSVC(), pool="mean"),
+    "MeanInstanceWrapperXGBClassifier": InstanceWrapper(XGBClassifier(), pool="mean"),
+    "MeanInstanceWrapperMLPClassifier": InstanceWrapper(MLPClassifier(), pool="mean"),
+
     # attention mil networks
-    "AdditiveAttentionNetworkClassifier": AdditiveAttentionNetworkClassifier(),
-    "SelfAttentionNetworkClassifier": SelfAttentionNetworkClassifier(),
-    "HopfieldAttentionNetworkClassifier": HopfieldAttentionNetworkClassifier(),
-    # other mil networks
-    "DynamicPoolingNetworkClassifier": DynamicPoolingNetworkClassifier(),
+    "AdditiveAttentionNetworkClassifier": AdditiveAttentionNetworkRegressor(),
 }
 
 # ==========================================================
@@ -103,34 +104,35 @@ def run_in_subprocess(func, *args, **kwargs):
 
 def conf_gen_stat(conf_train, conf_val, conf_test):
 
-    # 1. Calculate the succes number
+    # 1. Calculate the success number
     num_mol_train = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_train)
     num_mol_val = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_val)
     num_mol_test = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_test)
 
     # 2. Calculate the unique number of conformers
-    num_conf_train = list(set([i.GetNumConformers() for i in conf_train]))
-    num_conf_val = list(set([i.GetNumConformers() for i in conf_val]))
-    num_conf_test = list(set([i.GetNumConformers() for i in conf_test]))
+    num_conf_train = list(set([len(i) for i in conf_train]))
+    num_conf_val = list(set([len(i) for i in conf_val]))
+    num_conf_test = list(set([len(i) for i in conf_test]))
 
     # 3. Prepare results
     str_train = f"Generated number of training conformers: {len(conf_train)}/{num_mol_train}/{num_conf_train}"
     str_val = f"Generated number of val conformers: {len(conf_val)}/{num_mol_val}/{num_conf_val}"
     str_test = f"Generated number of test conformers: {len(conf_test)}/{num_mol_test}/{num_conf_test}"
     str_final = f"{str_train}\n{str_val}\n{str_test}"
+
     return str_final
 
-def gen_conformers(smi_list, n_cpu=1):
+def gen_conformers(smi_list, num_conf=10, num_cpu=1):
     """Generate conformers for a list of SMILES strings using RDKitConformerGenerator."""
     mol_list = []
     for smi in smi_list:
         mol = Chem.MolFromSmiles(smi)
         mol_list.append(mol)
-    conf_gen = RDKitConformerGenerator(num_conf=5, num_cpu=n_cpu, verbose=False)
+    conf_gen = RDKitConformerGenerator(num_conf=num_conf, num_cpu=num_cpu, verbose=False)
     conf_list = conf_gen.run(mol_list)
     return conf_list
 
-def clean_descriptors(bags: List[np.ndarray]) -> List[np.ndarray]:
+def clean_descriptors(bags):
     """Replace NaN values in each bag's instances with the column means computed across all instances."""
 
     # Concatenate all instances from all bags into one 2D array
@@ -169,7 +171,7 @@ def build_model(x_train, x_val, x_test, y_train, y_val, y_test, estimator_instan
     x_train_scaled, x_val_scaled = scale_descriptors(x_train, x_val)
 
     # 2. Optimize hyperparameters
-    if hopt:
+    if hopt and hasattr(estimator_instance, "hopt"):
         estimator_instance.hopt(x_train_scaled, y_train, param_grid=DEFAULT_PARAM_GRID, verbose=False)
 
     # 4. Train on train split only (not final training yet)
@@ -187,9 +189,10 @@ def build_model(x_train, x_val, x_test, y_train, y_val, y_test, estimator_instan
 
 class LazyMIL:
 
-    def __init__(self, task="regression", hopt=True, output_folder=None, verbose=True):
+    def __init__(self, task="regression", hopt=True, num_conf=10, output_folder=None, verbose=True):
         self.task = task
         self.hopt = hopt
+        self.num_conf = num_conf
         self.output_folder = output_folder
         self.verbose = verbose
         self.estimators_dict = REGRESSORS if self.task == "regression" else CLASSIFIERS
@@ -217,9 +220,9 @@ class LazyMIL:
         if self.verbose:
             print("Generating conformers...")
 
-        conf_train = gen_conformers(smi_train, n_cpu=20)
-        conf_val = gen_conformers(smi_val, n_cpu=20)
-        conf_test = gen_conformers(smi_test, n_cpu=20)
+        conf_train = gen_conformers(smi_train, num_conf=self.num_conf, num_cpu=20)
+        conf_val = gen_conformers(smi_val, num_conf=self.num_conf, num_cpu=20)
+        conf_test = gen_conformers(smi_test, num_conf=self.num_conf, num_cpu=20)
 
         if self.verbose:
             print(conf_gen_stat(conf_train, conf_val, conf_test))
@@ -273,7 +276,7 @@ class LazyMIL:
                 if self.verbose:
                     process = psutil.Process()
                     mem_gb = process.memory_info().rss / (1024 ** 3)
-                    print(f"  â†³ Finished in {elapsed_min:.2f} min | Memory usage: {mem_gb:.3f} GB")
+                    print(f"  > Finished in {elapsed_min:.2f} min | Memory usage: {mem_gb:.3f} GB")
 
         return None
 
