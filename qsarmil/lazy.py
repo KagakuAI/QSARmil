@@ -31,6 +31,9 @@ from qsarmil.descriptor.concat import DescriptorConcat
 from .utils.logging import OutputSuppressor
 from .utils.logging import FailedConformer, FailedDescriptor
 
+from rdkit import RDLogger
+RDLogger.DisableLog("rdApp.*")
+
 # ==========================================================
 # Configuration
 # ==========================================================
@@ -54,13 +57,13 @@ REGRESSORS = {
     "MeanBagWrapperLinearSVRRegressor": BagWrapper(LinearSVR(), pool="mean"),
     "MeanBagWrapperXGBRegressor": BagWrapper(XGBRegressor(), pool="mean"),
     "MeanBagWrapperMLPRegressor": BagWrapper(MLPRegressor(), pool="mean"),
-
-    # classic wrappers
+    #
+    # # classic wrappers
     "MeanInstanceWrapperRidgeRegressor": InstanceWrapper(Ridge(), pool="mean"),
     "MeanInstanceWrapperLinearSVRRegressor": InstanceWrapper(LinearSVR(), pool="mean"),
     "MeanInstanceWrapperXGBRegressor": InstanceWrapper(XGBRegressor(), pool="mean"),
     "MeanInstanceWrapperMLPRegressor": InstanceWrapper(MLPRegressor(), pool="mean"),
-
+    #
     # attention mil networks
     "AdditiveAttentionNetworkRegressor": AdditiveAttentionNetworkRegressor(),
 }
@@ -102,33 +105,13 @@ def run_in_subprocess(func, *args, **kwargs):
 
     return result
 
-def conf_gen_stat(conf_train, conf_val, conf_test):
-
-    # 1. Calculate the success number
-    num_mol_train = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_train)
-    num_mol_val = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_val)
-    num_mol_test = sum(1 if not isinstance(i, FailedConformer) else 0 for i in conf_test)
-
-    # 2. Calculate the unique number of conformers
-    num_conf_train = list(set([len(i) for i in conf_train]))
-    num_conf_val = list(set([len(i) for i in conf_val]))
-    num_conf_test = list(set([len(i) for i in conf_test]))
-
-    # 3. Prepare results
-    str_train = f"Generated number of training conformers: {len(conf_train)}/{num_mol_train}/{num_conf_train}"
-    str_val = f"Generated number of val conformers: {len(conf_val)}/{num_mol_val}/{num_conf_val}"
-    str_test = f"Generated number of test conformers: {len(conf_test)}/{num_mol_test}/{num_conf_test}"
-    str_final = f"{str_train}\n{str_val}\n{str_test}"
-
-    return str_final
-
-def gen_conformers(smi_list, num_conf=10, num_cpu=1):
+def gen_conformers(smi_list, num_conf=10, num_cpu=1, verbose=False):
     """Generate conformers for a list of SMILES strings using RDKitConformerGenerator."""
     mol_list = []
     for smi in smi_list:
         mol = Chem.MolFromSmiles(smi)
         mol_list.append(mol)
-    conf_gen = RDKitConformerGenerator(num_conf=num_conf, num_cpu=num_cpu, verbose=False)
+    conf_gen = RDKitConformerGenerator(num_conf=num_conf, num_cpu=num_cpu, verbose=verbose)
     conf_list = conf_gen.run(mol_list)
     return conf_list
 
@@ -151,8 +134,8 @@ def clean_descriptors(bags):
 
     return cleaned_bags
 
-def calc_descriptors(conf_list, calculator) :
-    calculator.verbose = False
+def calc_descriptors(conf_list, calculator, verbose=False) :
+    calculator.verbose = verbose
     x = calculator.run(conf_list)
     x = clean_descriptors(x)
     return x
@@ -217,15 +200,10 @@ class LazyMIL:
         result_df_test["SMILES"], result_df_test["Y_TRUE"] = smi_test, y_test
 
         # 2. Generate conformers
-        if self.verbose:
-            print("Generating conformers...")
 
-        conf_train = gen_conformers(smi_train, num_conf=self.num_conf, num_cpu=20)
-        conf_val = gen_conformers(smi_val, num_conf=self.num_conf, num_cpu=20)
-        conf_test = gen_conformers(smi_test, num_conf=self.num_conf, num_cpu=20)
-
-        if self.verbose:
-            print(conf_gen_stat(conf_train, conf_val, conf_test))
+        conf_train = gen_conformers(smi_train, num_conf=self.num_conf, num_cpu=20, verbose=False)
+        conf_val = gen_conformers(smi_val, num_conf=self.num_conf, num_cpu=20, verbose=False)
+        conf_test = gen_conformers(smi_test, num_conf=self.num_conf, num_cpu=20, verbose=False)
 
         total_models = len(DESCRIPTORS) * len(self.estimators_dict)
         current_model = 0
@@ -233,20 +211,15 @@ class LazyMIL:
         # 3. Calculate descriptors
         for desc_name, desc_calc in DESCRIPTORS.items():
 
-            if self.verbose:
-                print(f"Calculating {desc_name} descriptors...")
-
-            x_train = list(calc_descriptors(conf_train, desc_calc))
-            x_val = list(calc_descriptors(conf_val, desc_calc))
-            x_test = list(calc_descriptors(conf_test, desc_calc))
+            x_train = list(calc_descriptors(conf_train, desc_calc, verbose=False))
+            x_val = list(calc_descriptors(conf_val, desc_calc, verbose=False))
+            x_test = list(calc_descriptors(conf_test, desc_calc, verbose=False))
 
             # 4. Train models
             for est_name, estimator in self.estimators_dict.items():
 
                 model_name = f"{desc_name}|{est_name}"
                 current_model += 1
-                if self.verbose:
-                    print(f"[{current_model}/{total_models}] Running model: {model_name}", flush=True)
 
                 start = time.time()
                 with OutputSuppressor() as logger:
@@ -276,6 +249,7 @@ class LazyMIL:
                 if self.verbose:
                     process = psutil.Process()
                     mem_gb = process.memory_info().rss / (1024 ** 3)
+                    print(f"[{current_model}/{total_models}] Running model: {model_name}")
                     print(f"  > Finished in {elapsed_min:.2f} min | Memory usage: {mem_gb:.3f} GB")
 
         return None

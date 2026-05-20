@@ -1,0 +1,242 @@
+╭─── Claude Code v2.1.116 ─────────────────────────────────────────────────────╮
+│                                                    │ Tips for getting        │
+│                 Welcome back Paulo!                │ started                 │
+│                                                    │ Run /init to create a … │
+│                       ▐▛███▜▌                      │ ─────────────────────── │
+│                      ▝▜█████▛▘                     │ Recent activity         │
+│                        ▘▘ ▝▝                       │ No recent activity      │
+│    Sonnet 4.6 · Claude Pro · papoai@seznam.cz's    │                         │
+│    Organization                                    │                         │
+│                  ~/python/QSARmil                  │                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+❯  make code review, find edge cases and potential issues, assess usability, api and user interface
+
+  Read 8 files, listed 4 directories (ctrl+o to expand)
+
+● Here's a thorough review. I grouped findings by severity so the critical ones
+  surface first.
+
+  Critical / data-safety issues
+
+  1. LazyMIL.__init__ unconditionally rmtrees output_folder 
+  (qsarmil/lazy.py:281-283)
+
+  if os.path.exists(self.output_folder):
+      shutil.rmtree(self.output_folder)
+  os.makedirs(self.output_folder, exist_ok=True)
+  This deletes any folder the user names, with no guard, no .qsarmil marker
+  check, no confirmation. A user who passes ".", "~/results", or a path typo
+  loses data silently. This is a serious footgun for a library that users will
+  call from notebooks.
+  Suggestions: (a) error if the folder exists and isn't empty; (b) require a
+  overwrite=True flag; (c) only wipe files that LazyMIL itself owns (e.g.,
+  val.csv, test.csv).
+
+  5. write_model_predictions length-mismatch path is broken 
+  (qsarmil/lazy.py:99-121)
+
+  On length mismatch the code builds tmp with a Y_TRUE_NEW column that is
+  silently discarded, merges on SMILES which duplicates rows if SMILES repeat,
+  and only raises inside a broad except Exception. The "recovery" is worse than
+  the error: the CSV can silently grow rows or attach wrong predictions. Replace
+   with a strict error and an alignment helper the caller opts into.
+
+  6. replace_nan_with_column_mean still leaves NaNs when a whole column is NaN 
+  (qsarmil/lazy.py:124-145)
+
+  np.nanmean of an all-NaN column returns NaN, which is then imputed back in.
+  The docstring even acknowledges the "robustness fix" was skipped — but
+  downstream this NaN hits BagMinMaxScaler.fit and model fit, producing silent
+  NaN predictions. Impute with 0.0 (or a per-column fallback) after np.nanmean
+  to close the hole.
+
+  Same issue, smaller scope, in descriptor/rdkit.py:18-24 validate_desc_vector:
+  when every element is NaN, np.mean(x[~np.isnan(x)]) is NaN and nothing is
+  fixed.
+
+  High-impact correctness / API issues
+
+  7. Tutorials promise parallel training; code is sequential 
+  (qsarmil/lazy.py:331)
+
+  Tutorial text says "Trains multiple MIL estimators in parallel." The loop runs
+   one model.run at a time. Either fix the claim or parallelize (noting that
+  each MIL net likely wants its own CUDA stream / process).
+
+  8. ConformerGenerator._prepare_molecule returns NotImplemented instead of 
+  raising (qsarmil/conformer/base.py:32-44)
+
+  return NotImplemented is a Python operator-protocol sentinel — it does not
+  raise. A forgetful subclass that omits this method silently propagates the
+  sentinel and blows up further down the call stack. Use raise 
+  NotImplementedError.
+
+  9. RDKitConformerGenerator._embedd_conformers drops the base class's embedding
+   parameters (qsarmil/conformer/rdkit.py:43-56)
+
+  Base sets ETKDGv3() with numThreads=0, maxAttempts=1000, pruneRmsThresh=0.1.
+  The override replaces it with EmbedMultipleConfs(..., maxAttempts=700, 
+  randomSeed=42) — no ETKDGv3, no pruning, no multi-threading. This is probably
+  not intentional. Either delete the override (let the base class win) or pass
+  an explicit ETKDGv3 with the full parameter set.
+
+  10. filter_by_energy can IndexError on all-failed UFF 
+  (qsarmil/conformer/base.py:146-159)
+
+  If every conformer's UFFGetMoleculeForceField returns None,
+  conf_energy_list[0] raises IndexError. Add a fallback that returns the
+  molecule unchanged (or logs a failure).
+
+  11. Monkey-patching joblib.parallel.BatchCompletionCallBack is not 
+  thread/re-entrancy safe (conformer/base.py, descriptor/wrapper.py, 
+  fragment/rdkit.py)
+
+  All three classes do the same global patch with try/finally restore. Two
+  concurrent calls (e.g. nested or sibling) will clobber each other's
+  old_callback. Replace with tqdm_joblib (from tqdm.contrib.concurrent import 
+  ... or the tqdm_joblib package's context manager) and factor it into utils/.
+
+  12. backend="threading" for CPU-bound work
+
+  RDKit/molfeat descriptor calculation is heavy Python-side work. Threading
+  rarely helps because of the GIL except where RDKit releases it. Consider loky
+  (the joblib default) or at minimum make the backend configurable.
+
+  13. hopt flow may be wrong (qsarmil/lazy.py:236-238)
+
+  if self.hopt and hasattr(estimator, "hopt"):
+      estimator.hopt(x_train_scaled, y_train, param_grid=DEFAULT_PARAM_GRID,
+  verbose=False)
+  estimator.fit(x_train_scaled, y_train)
+  If hopt already fits the estimator with chosen hyperparameters, calling fit
+  afterwards likely re-initializes weights and may reset hyperparameters
+  depending on the milearn API. Verify whether hopt returns best params that
+  should be set before fit, or whether fit should be skipped after hopt.
+
+  14. Module-level estimator/descriptor singletons (qsarmil/lazy.py:38-76)
+
+  REGRESSORS = {"...": BagNetworkRegressor(pool="mean"), ...} instantiates every
+   network at import time. Side effects: long import, CUDA initialization before
+   the user has said anything, and shared mutable state across LazyMIL
+  instances. Prefer factories (lambda: BagNetworkRegressor(pool="mean")) or
+  class + kwargs pairs so each model instantiates fresh.
+
+  Medium / API ergonomics
+
+  15. LazyMIL assumes column 0 = SMILES, column 1 = target, hardcoded 
+  (qsarmil/lazy.py:167-168)
+
+  No validation, no kwarg. If the user has SMILES at index 1 they get nonsense
+  results without error. Add smiles_col="SMILES", target_col=... kwargs,
+  validate presence, and coerce types.
+
+  16. LazyMIL hardcodes num_conf=10, the descriptor list, and estimator list
+
+  None of these are configurable through the public API without editing module
+  globals. Accept:
+  LazyMIL(..., num_conf=10, descriptors=None, estimators=None)
+  with sensible defaults.
+
+  17. DescriptorWrapper.num_cpu=2 default inconsistent with other classes 
+  (default 1)
+
+  Pick one default and use it everywhere.
+
+  18. Typo in public-ish method name _embedd_conformers → _embed_conformers
+
+  Rename now; cheap to change, expensive later.
+
+  19. qsarmil/__init__.py is empty
+
+  Users must know the internal layout: from qsarmil.lazy import LazyMIL.
+  Re-export the common entry points (LazyMIL, RDKitConformerGenerator,
+  DescriptorWrapper, FragmentGenerator) so from qsarmil import LazyMIL works.
+
+  20. pyproject.toml lists mikit-learn (pyproject.toml:14)
+
+  Code imports milearn. If the PyPI package is called milearn, pip install 
+  qsarmil will install the wrong thing (or nothing). Double-check the spelling
+  against the actual PyPI package. Also pin minimum versions for your core deps;
+   unpinned deps break reproducibility.
+
+  21. No python_requires / supported versions listed
+
+  CI uses Python 3.10 only. Add requires-python = ">=3.10" to pyproject.toml.
+
+  22. No tests anywhere
+
+  A package that orchestrates conformer gen → descriptors → scaling → training
+  needs at least smoke tests covering: bad SMILES, empty conformer list, all-NaN
+   column, mixed success/failure input, LazyMIL happy path on 5 molecules.
+  Without them every refactor is blind.
+
+  23. Progress prints with mixed \r/\n corrupt each other (qsarmil/lazy.py:336, 
+  339)
+
+  Visible in tutorial output:
+  72 / 72 — MolFeatPmapper|DynamicPoolingNetworkRegressorsoressoressor
+  Use tqdm for this outer loop too, or always print(..., flush=True) with
+  consistent line endings.
+
+  24. Partial state after per-model error (qsarmil/lazy.py:332-339)
+
+  A model that fails between writing val.csv and test.csv leaves the two files
+  inconsistent. Either write both atomically at the end, or log a per-model skip
+   and ensure the two paths stay in lockstep.
+
+  Minor / style
+
+  - validate_desc_vector: magic number 10**25 — extract to a named constant.
+  - RDKitGEOM.__call__ does getattr(...) inside the loop every call; cache the
+  callables in __init__.
+  - DescriptorWrapper._transform uses print(e) — replace with logging and attach
+   molecule identity.
+  - RDKitDescriptor3D uses Descriptors3D.rdMolDescriptors.<name> — a private
+  submodule reach. Prefer the public rdkit.Chem.rdMolDescriptors directly.
+  - ConformerGenerator.__init__ and FragmentGenerator.__init__ call
+  super().__init__() without inheriting from anything — dead code.
+  - RDKitConformerGenerator drops rmsd_thresh from __init__, so users of the
+  subclass can't filter by RMSD without reaching past the public API.
+  - write_model_predictions: pd.Series(y_pred, name=model_name) is only used for
+   len(...) — just use len(y_pred).
+  - write_model_predictions: os.makedirs(os.path.dirname(output_path), 
+  exist_ok=True) raises when output_path has no directory component (relative
+  filename). Guard with dirname or ".".
+  - LazyMIL.run returns self but produces its outputs via side-effect (CSV
+  files). Either return a useful object (a results dataframe, a dict of metrics)
+   or document clearly that the CSVs on disk are the only output.
+  - huggingface_hub in pyproject.toml deps but not directly imported by this
+  package (likely a transitive). Drop if unused.
+
+  Usability assessment
+
+  Strengths: one-liner LazyMIL(...).run(train, val, test) is genuinely
+  attractive for notebook-driven benchmarking. The
+  FailedMolecule/FailedConformer/FailedDescriptor vocabulary is a good idea.
+
+  Weaknesses:
+  1. The destructive rmtree behavior will burn someone. Fix before any further
+  release.
+  2. No column-name API, no way to restrict/extend descriptor or estimator
+  lists, no configurable num_conf — the only way to customize is to fork.
+  3. Failed molecules pass through the first stages and then explode in
+  descriptor math rather than being filtered up-front with a clear report.
+  4. The tutorial claims parallel training that doesn't exist; the progress bar
+  behavior is noisy; there's no final summary of which models succeeded/failed
+  and with what score.
+  5. No predict / inference entry point — once models are trained, the CSVs are
+  the only artifact; users can't score new molecules with the best model.
+
+  Top-5 things I'd fix first
+
+  1. Remove the shutil.rmtree(output_folder) behavior (Critical #1).
+  2. Drop the global warnings.filterwarnings("ignore") (Critical #2).
+  3. Convert None from MolFromSmiles into FailedMolecule and make the pipeline
+  drop/report failed rows consistently (Critical #3, #4).
+  4. Fix _prepare_molecule sentinel and the RDKitConformerGenerator embed-params
+   regression (#8, #9).
+  5. Verify milearn vs mikit-learn dependency name and add at least a smoke test
+   (#20, #22).
+
+✻ Churned for 3m 27s

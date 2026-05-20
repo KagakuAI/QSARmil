@@ -40,17 +40,17 @@ class RDKitConformerGenerator(ConformerGenerator):
         mol = Chem.AddHs(mol)
         return mol
 
-    def _embedd_conformers(self, mol):
-        """Embed multiple 3D conformers for a molecule using RDKit.
-
-        Overrides the base method to use RDKit-specific parameters.
-
-        Args:
-            mol (rdkit.Chem.Mol): Molecule to embed conformers for.
-
-        Returns:
-            rdkit.Chem.Mol: Molecule with embedded conformers.
-        """
-        mol = self._prepare_molecule(mol)
-        AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf, maxAttempts=700, randomSeed=42)
-        return mol
+    # def _embedd_conformers(self, mol):
+    #     """Embed multiple 3D conformers for a molecule using RDKit.
+    #
+    #     Overrides the base method to use RDKit-specific parameters.
+    #
+    #     Args:
+    #         mol (rdkit.Chem.Mol): Molecule to embed conformers for.
+    #
+    #     Returns:
+    #         rdkit.Chem.Mol: Molecule with embedded conformers.
+    #     """
+    #     mol = self._prepare_molecule(mol)
+    #     AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf, maxAttempts=700, randomSeed=42)
+    #     return mol

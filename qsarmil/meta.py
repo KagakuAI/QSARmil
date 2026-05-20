@@ -27,7 +27,7 @@ class MultiConformerModel:
         lazy_ml = LazyMIL(task=self.task, hopt=self.hopt, output_folder=self.output_folder, verbose=self.verbose)
         lazy_ml.run(df_train, df_val, df_test)
 
-        # 4. Load model predictions
+        # 4. Load individual model predictions
         res_val = pd.read_csv(f"{self.output_folder}/val.csv")
         res_test = pd.read_csv(f"{self.output_folder}/test.csv")
 
@@ -35,12 +35,16 @@ class MultiConformerModel:
         x_test = res_test.iloc[:, 2:]
 
         # 5. Run genetic search
-        print("Running consensus search")
+        if self.verbose:
+            print("\nRunning consensus search ...")
+
         cons_search = GeneticSearch(cons_size="auto", metric="auto", n_iter=50)
 
         best_cons = cons_search.run(x_val, true_val)
         pred_test = cons_search.predict(x_test[best_cons])
 
-        print(f"Best consensus: {best_cons}")
+        if self.verbose:
+            print(f"Best consensus:")
+            print("\n".join(best_cons))
 
         return pred_test

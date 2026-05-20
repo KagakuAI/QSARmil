@@ -6,7 +6,6 @@ from rdkit.Chem import AllChem, rdMolAlign
 from qsarmil.utils.ensemble import ConformerEnsemble
 
 from qsarmil.utils.logging import FailedConformer, FailedMolecule
-
 RDLogger.DisableLog("rdApp.*")
 
 
@@ -30,9 +29,7 @@ class ConformerGenerator:
         """Generate multiple 3D conformers for a molecule."""
         mol = self._prepare_molecule(mol)
         params = AllChem.ETKDGv3()
-        params.numThreads = 0
-        params.maxAttempts = 1000
-        params.pruneRmsThresh = 0.1
+        params.randomSeed = 42
         AllChem.EmbedMultipleConfs(mol, numConfs=self.num_conf, params=params)
         return mol
 
