@@ -12,20 +12,20 @@ RDLogger.DisableLog("rdApp.*")
 class ConformerGenerator:
     """Generate and optimize molecular conformers with optional filtering."""
 
-    def __init__(self, num_conf=10, e_thresh=None, rmsd_thresh=None, num_cpu=1, verbose=True):
+    def __init__(self, num_conf=10, e_thresh=None, num_cpu=1, verbose=True):
         super().__init__()
 
         self.num_conf = num_conf
         self.e_thresh = e_thresh
-        self.rmsd_thresh = rmsd_thresh
         self.num_cpu = num_cpu
         self.verbose = verbose
 
     def _prepare_molecule(self, mol):
-        """Prepare the input molecule for conformer generation."""
-        return NotImplemented
+        """Prepare a molecule by adding explicit hydrogens."""
+        mol = Chem.AddHs(mol)
+        return mol
 
-    def _embedd_conformers(self, mol):
+    def _embed_conformers(self, mol):
         """Generate multiple 3D conformers for a molecule."""
         mol = self._prepare_molecule(mol)
         params = AllChem.ETKDGv3()
@@ -39,7 +39,7 @@ class ConformerGenerator:
         if isinstance(mol, (FailedMolecule, FailedConformer)):
             return mol
         try:
-            mol = self._embedd_conformers(mol)
+            mol = self._embed_conformers(mol)
             if not mol.GetNumConformers():
                 print(f"Conformer generation failed for {Chem.MolToSmiles(mol)}")
                 return FailedConformer(mol)
@@ -49,9 +49,6 @@ class ConformerGenerator:
 
         if self.e_thresh is not None:
             mol = filter_by_energy(mol, self.e_thresh)
-
-        if self.rmsd_thresh is not None:
-            mol = filter_by_rmsd(mol, self.rmsd_thresh)
 
         return mol
 
@@ -109,27 +106,5 @@ def filter_by_energy(mol, e_thresh=1):
     for conf_id, conf_energy in conf_energy_list[1:]:
         if conf_energy - min_energy >= e_thresh:
             mol.RemoveConformer(conf_id)
-
-    return mol
-
-
-def filter_by_rmsd(mol, rmsd_thresh=2):
-    """Filter conformers of a molecule based on RMSD similarity."""
-
-    conf_ids = [conf.GetId() for conf in mol.GetConformers()]
-    to_remove = set()
-
-    for i, conf_id_i in enumerate(conf_ids):
-        if conf_id_i in to_remove:
-            continue
-        for conf_id_j in conf_ids[i + 1 :]:
-            if conf_id_j in to_remove:
-                continue
-            rmsd = rdMolAlign.GetConformerRMS(mol, conf_id_i, conf_id_j, prealigned=False)
-            if rmsd < rmsd_thresh:
-                to_remove.add(conf_id_j)
-
-    for conf_id in to_remove:
-        mol.RemoveConformer(conf_id)
 
     return mol

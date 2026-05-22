@@ -3,12 +3,16 @@ from sklearn.model_selection import train_test_split
 from qsarmil.lazy import LazyMIL
 from qsarcons.consensus import SystematicSearch, GeneticSearch
 
+from rdkit import RDLogger
+RDLogger.DisableLog("rdApp.*")
+
 class MultiConformerModel:
 
-    def __init__(self, num_conf=10, task="regression", hopt=False, output_folder=None, verbose=True):
+    def __init__(self, num_conf=10, task="regression", hopt=False, num_cpu=20, output_folder=None, verbose=True):
         super().__init__()
 
         self.num_conf = num_conf
+        self.num_cpu = num_cpu
         self.task = task
         self.hopt = hopt
         self.output_folder = output_folder
@@ -24,7 +28,8 @@ class MultiConformerModel:
         df_train, df_val = train_test_split(df_train, test_size=0.2, random_state=42)
 
         # 3. Build multiple models
-        lazy_ml = LazyMIL(task=self.task, hopt=self.hopt, output_folder=self.output_folder, verbose=self.verbose)
+        lazy_ml = LazyMIL(task=self.task, hopt=self.hopt, output_folder=self.output_folder,
+                          num_cpu=self.num_cpu, verbose=self.verbose)
         lazy_ml.run(df_train, df_val, df_test)
 
         # 4. Load individual model predictions
@@ -36,15 +41,20 @@ class MultiConformerModel:
 
         # 5. Run genetic search
         if self.verbose:
-            print("\nRunning consensus search ...")
+            print("\nRunning systematic consensus search ...")
 
-        cons_search = GeneticSearch(cons_size="auto", metric="auto", n_iter=50)
+        # cons_search = GeneticSearch(cons_size="auto", metric="auto", n_iter=50)
+        cons_search = SystematicSearch(cons_size="auto", metric="auto")
 
         best_cons = cons_search.run(x_val, true_val)
         pred_test = cons_search.predict(x_test[best_cons])
+
+        # 6. Return predictions with df
+        pred_df = pd.concat([res_test["SMILES"], pd.Series(pred_test)], axis=1)
+        pred_df = pred_df.rename(columns={0:"pred"})
 
         if self.verbose:
             print(f"Best consensus:")
             print("\n".join(best_cons))
 
-        return pred_test
+        return pred_df

@@ -19,7 +19,6 @@ dependencies = [
         "mikit-learn",
         "qsarcons",
         "py3Dmol",
-        "huggingface_hub",
 ]
 
 [tool.setuptools.packages.find]

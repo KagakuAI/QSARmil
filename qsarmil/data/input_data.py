@@ -98,7 +98,7 @@ class DataValidator:
                     print(f"  > Row {r['row_index']}: {r['smiles']} -> {r['reason']}")
         else:
             if self.verbose:
-                print("\nNo rows removed. All molecules valid.")
+                print("No rows removed. All molecules are valid.")
 
         # return filtered dataframe
         return df[mask].reset_index(drop=True)
