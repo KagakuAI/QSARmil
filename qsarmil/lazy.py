@@ -45,9 +45,9 @@ DESCRIPTORS = {
     "RDKitMORSE": DescriptorWrapper(RDKitMORSE()),
     "RDKitWHIM": DescriptorWrapper(RDKitWHIM()),
     "MolFeatUSRD": DescriptorWrapper(USRDescriptors()),
-    "MolFeatElectroShape": DescriptorWrapper(ElectroShapeDescriptors()),
-    "RDKitGETAWAY": DescriptorWrapper(RDKitGETAWAY()),
-    "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory="pmapper")),
+    # "MolFeatElectroShape": DescriptorWrapper(ElectroShapeDescriptors()),
+    # "RDKitGETAWAY": DescriptorWrapper(RDKitGETAWAY()),
+    # "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory="pmapper")),
 }
 
 REGRESSORS = {
@@ -59,13 +59,13 @@ REGRESSORS = {
     "MeanBagWrapperMLPRegressor": BagWrapper(MLPRegressor(), pool="mean"),
     #
     # # classic wrappers
-    "MeanInstanceWrapperRidgeRegressor": InstanceWrapper(Ridge(), pool="mean"),
-    "MeanInstanceWrapperLinearSVRRegressor": InstanceWrapper(LinearSVR(), pool="mean"),
-    "MeanInstanceWrapperXGBRegressor": InstanceWrapper(XGBRegressor(), pool="mean"),
-    "MeanInstanceWrapperMLPRegressor": InstanceWrapper(MLPRegressor(), pool="mean"),
-    #
-    # attention mil networks
-    "AdditiveAttentionNetworkRegressor": AdditiveAttentionNetworkRegressor(),
+    # "MeanInstanceWrapperRidgeRegressor": InstanceWrapper(Ridge(), pool="mean"),
+    # "MeanInstanceWrapperLinearSVRRegressor": InstanceWrapper(LinearSVR(), pool="mean"),
+    # "MeanInstanceWrapperXGBRegressor": InstanceWrapper(XGBRegressor(), pool="mean"),
+    # "MeanInstanceWrapperMLPRegressor": InstanceWrapper(MLPRegressor(), pool="mean"),
+    # #
+    # # attention mil networks
+    # "AdditiveAttentionNetworkRegressor": AdditiveAttentionNetworkRegressor(),
 }
 
 CLASSIFIERS = {
@@ -83,7 +83,7 @@ CLASSIFIERS = {
     "MeanInstanceWrapperMLPClassifier": InstanceWrapper(MLPClassifier(), pool="mean"),
 
     # attention mil networks
-    "AdditiveAttentionNetworkClassifier": AdditiveAttentionNetworkRegressor(),
+    "AdditiveAttentionNetworkClassifier": AdditiveAttentionNetworkClassifier(),
 }
 
 # ==========================================================
@@ -172,11 +172,12 @@ def build_model(x_train, x_val, x_test, y_train, y_val, y_test, estimator_instan
 
 class LazyMIL:
 
-    def __init__(self, task="regression", hopt=True, num_conf=10, output_folder=None, verbose=True):
+    def __init__(self, task="regression", hopt=True, num_conf=10, num_cpu=20, output_folder=None, verbose=True):
         self.task = task
         self.hopt = hopt
         self.num_conf = num_conf
         self.output_folder = output_folder
+        self.num_cpu = num_cpu
         self.verbose = verbose
         self.estimators_dict = REGRESSORS if self.task == "regression" else CLASSIFIERS
 
@@ -200,10 +201,9 @@ class LazyMIL:
         result_df_test["SMILES"], result_df_test["Y_TRUE"] = smi_test, y_test
 
         # 2. Generate conformers
-
-        conf_train = gen_conformers(smi_train, num_conf=self.num_conf, num_cpu=20, verbose=False)
-        conf_val = gen_conformers(smi_val, num_conf=self.num_conf, num_cpu=20, verbose=False)
-        conf_test = gen_conformers(smi_test, num_conf=self.num_conf, num_cpu=20, verbose=False)
+        conf_train = gen_conformers(smi_train, num_conf=self.num_conf, num_cpu=self.num_cpu, verbose=self.verbose)
+        conf_val = gen_conformers(smi_val, num_conf=self.num_conf, num_cpu=self.num_cpu, verbose=self.verbose)
+        conf_test = gen_conformers(smi_test, num_conf=self.num_conf, num_cpu=self.num_cpu, verbose=self.verbose)
 
         total_models = len(DESCRIPTORS) * len(self.estimators_dict)
         current_model = 0
