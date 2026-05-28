@@ -23,13 +23,10 @@ from milearn.network.module.hopt import DEFAULT_PARAM_GRID
 # descriptors
 from rdkit import Chem
 from molfeat.calc import ElectroShapeDescriptors, Pharmacophore3D, USRDescriptors
-from molfeat.trans import MoleculeTransformer
 from qsarmil.conformer.rdkit import RDKitConformerGenerator
 from qsarmil.descriptor.rdkit import RDKitAUTOCORR, RDKitGEOM, RDKitGETAWAY, RDKitMORSE, RDKitRDF, RDKitWHIM
 from qsarmil.descriptor.wrapper import DescriptorWrapper
-from qsarmil.descriptor.concat import DescriptorConcat
 from .utils.logging import OutputSuppressor
-from .utils.logging import FailedConformer, FailedDescriptor
 
 from rdkit import RDLogger
 RDLogger.DisableLog("rdApp.*")
@@ -45,9 +42,9 @@ DESCRIPTORS = {
     "RDKitMORSE": DescriptorWrapper(RDKitMORSE()),
     "RDKitWHIM": DescriptorWrapper(RDKitWHIM()),
     "MolFeatUSRD": DescriptorWrapper(USRDescriptors()),
-    # "MolFeatElectroShape": DescriptorWrapper(ElectroShapeDescriptors()),
-    # "RDKitGETAWAY": DescriptorWrapper(RDKitGETAWAY()),
-    # "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory="pmapper")),
+    "MolFeatElectroShape": DescriptorWrapper(ElectroShapeDescriptors()),
+    "RDKitGETAWAY": DescriptorWrapper(RDKitGETAWAY()),
+    "MolFeatPmapper": DescriptorWrapper(Pharmacophore3D(factory="pmapper")),
 }
 
 REGRESSORS = {
@@ -57,15 +54,15 @@ REGRESSORS = {
     "MeanBagWrapperLinearSVRRegressor": BagWrapper(LinearSVR(), pool="mean"),
     "MeanBagWrapperXGBRegressor": BagWrapper(XGBRegressor(), pool="mean"),
     "MeanBagWrapperMLPRegressor": BagWrapper(MLPRegressor(), pool="mean"),
+
+    # classic wrappers
+    "MeanInstanceWrapperRidgeRegressor": InstanceWrapper(Ridge(), pool="mean"),
+    "MeanInstanceWrapperLinearSVRRegressor": InstanceWrapper(LinearSVR(), pool="mean"),
+    "MeanInstanceWrapperXGBRegressor": InstanceWrapper(XGBRegressor(), pool="mean"),
+    "MeanInstanceWrapperMLPRegressor": InstanceWrapper(MLPRegressor(), pool="mean"),
     #
-    # # classic wrappers
-    # "MeanInstanceWrapperRidgeRegressor": InstanceWrapper(Ridge(), pool="mean"),
-    # "MeanInstanceWrapperLinearSVRRegressor": InstanceWrapper(LinearSVR(), pool="mean"),
-    # "MeanInstanceWrapperXGBRegressor": InstanceWrapper(XGBRegressor(), pool="mean"),
-    # "MeanInstanceWrapperMLPRegressor": InstanceWrapper(MLPRegressor(), pool="mean"),
-    # #
-    # # attention mil networks
-    # "AdditiveAttentionNetworkRegressor": AdditiveAttentionNetworkRegressor(),
+    # attention mil networks
+    "AdditiveAttentionNetworkRegressor": AdditiveAttentionNetworkRegressor(),
 }
 
 CLASSIFIERS = {

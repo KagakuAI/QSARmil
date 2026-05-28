@@ -6,7 +6,7 @@ from IPython.display import display, HTML
 
 
 def visualize_conformers_grid(mol, weights, key_conformers, top_n=5,
-                              style="stick", n_cols=3, width=250, height=250,
+                              style="stick", n_cols=4, width=250, height=250,
                               show_all=False, sort_by_weight=True):
     
     num_confs = mol.GetNumConformers()
