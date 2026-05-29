@@ -1,41 +1,37 @@
 import os
-import time
-import psutil
 import shutil
+import time
 from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 import pandas as pd
-
-from sklearn.linear_model import Ridge, RidgeClassifier
-from sklearn.neural_network import MLPRegressor, MLPClassifier
-from xgboost import XGBRegressor, XGBClassifier
-from sklearn.svm import LinearSVR, LinearSVC
-
-from milearn.wrapper import InstanceWrapper, BagWrapper
+import psutil
 from milearn.network.classifier import AdditiveAttentionNetworkClassifier
+from milearn.network.module.hopt import DEFAULT_PARAM_GRID
 from milearn.network.regressor import AdditiveAttentionNetworkRegressor
-
 # preprocessing
 from milearn.preprocessing import BagMinMaxScaler
-from milearn.network.module.hopt import DEFAULT_PARAM_GRID
-
-# descriptors
-from rdkit import Chem
+from milearn.wrapper import BagWrapper, InstanceWrapper
 from molfeat.calc import ElectroShapeDescriptors, Pharmacophore3D, USRDescriptors
+# descriptors
+from rdkit import Chem, RDLogger
+from sklearn.linear_model import Ridge, RidgeClassifier
+from sklearn.neural_network import MLPClassifier, MLPRegressor
+from sklearn.svm import LinearSVC, LinearSVR
+from xgboost import XGBClassifier, XGBRegressor
+
 from qsarmil.conformer.rdkit import RDKitConformerGenerator
 from qsarmil.descriptor.rdkit import RDKitAUTOCORR, RDKitGEOM, RDKitGETAWAY, RDKitMORSE, RDKitRDF, RDKitWHIM
 from qsarmil.descriptor.wrapper import DescriptorWrapper
+
 from .utils.logging import OutputSuppressor
 
-from rdkit import RDLogger
 RDLogger.DisableLog("rdApp.*")
 
 # ==========================================================
 # Configuration
 # ==========================================================
 DESCRIPTORS = {
-
     "RDKitGEOM": DescriptorWrapper(RDKitGEOM()),
     "RDKitAUTOCORR": DescriptorWrapper(RDKitAUTOCORR()),
     "RDKitRDF": DescriptorWrapper(RDKitRDF()),
@@ -48,13 +44,11 @@ DESCRIPTORS = {
 }
 
 REGRESSORS = {
-
     # classic wrappers
     "MeanBagWrapperRidgeRegressor": BagWrapper(Ridge(), pool="mean"),
     "MeanBagWrapperLinearSVRRegressor": BagWrapper(LinearSVR(), pool="mean"),
     "MeanBagWrapperXGBRegressor": BagWrapper(XGBRegressor(), pool="mean"),
     "MeanBagWrapperMLPRegressor": BagWrapper(MLPRegressor(), pool="mean"),
-
     # classic wrappers
     "MeanInstanceWrapperRidgeRegressor": InstanceWrapper(Ridge(), pool="mean"),
     "MeanInstanceWrapperLinearSVRRegressor": InstanceWrapper(LinearSVR(), pool="mean"),
@@ -66,22 +60,20 @@ REGRESSORS = {
 }
 
 CLASSIFIERS = {
-
     # classic wrappers
     "MeanBagWrapperRidgeClassifier": BagWrapper(RidgeClassifier(), pool="mean"),
     "MeanBagWrapperLinearSVCClassifier": BagWrapper(LinearSVC(), pool="mean"),
     "MeanBagWrapperXGBClassifier": BagWrapper(XGBClassifier(), pool="mean"),
     "MeanBagWrapperMLPClassifier": BagWrapper(MLPClassifier(), pool="mean"),
-
     # classic wrappers
     "MeanInstanceWrapperRidgeClassifier": InstanceWrapper(RidgeClassifier(), pool="mean"),
     "MeanInstanceWrapperLinearSVCClassifier": InstanceWrapper(LinearSVC(), pool="mean"),
     "MeanInstanceWrapperXGBClassifier": InstanceWrapper(XGBClassifier(), pool="mean"),
     "MeanInstanceWrapperMLPClassifier": InstanceWrapper(MLPClassifier(), pool="mean"),
-
     # attention mil networks
     "AdditiveAttentionNetworkClassifier": AdditiveAttentionNetworkClassifier(),
 }
+
 
 # ==========================================================
 # Utility Functions
@@ -91,6 +83,7 @@ def _worker(func, args, kwargs):
         return func(*args, **kwargs)
     except Exception as e:
         return {"error": repr(e)}
+
 
 def run_in_subprocess(func, *args, **kwargs):
     with ProcessPoolExecutor(max_workers=1) as ex:
@@ -102,8 +95,10 @@ def run_in_subprocess(func, *args, **kwargs):
 
     return result
 
+
 def gen_conformers(smi_list, num_conf=10, num_cpu=1, verbose=False):
-    """Generate conformers for a list of SMILES strings using RDKitConformerGenerator."""
+    """Generate conformers for a list of SMILES strings using
+    RDKitConformerGenerator."""
     mol_list = []
     for smi in smi_list:
         mol = Chem.MolFromSmiles(smi)
@@ -112,8 +107,10 @@ def gen_conformers(smi_list, num_conf=10, num_cpu=1, verbose=False):
     conf_list = conf_gen.run(mol_list)
     return conf_list
 
+
 def clean_descriptors(bags):
-    """Replace NaN values in each bag's instances with the column means computed across all instances."""
+    """Replace NaN values in each bag's instances with the column means
+    computed across all instances."""
 
     # Concatenate all instances from all bags into one 2D array
     all_instances = np.vstack(bags)
@@ -131,16 +128,19 @@ def clean_descriptors(bags):
 
     return cleaned_bags
 
-def calc_descriptors(conf_list, calculator, verbose=False) :
+
+def calc_descriptors(conf_list, calculator, verbose=False):
     calculator.verbose = verbose
     x = calculator.run(conf_list)
     x = clean_descriptors(x)
     return x
 
+
 def scale_descriptors(x_train, x_test):
     scaler = BagMinMaxScaler()
     scaler.fit(x_train)
     return scaler.transform(x_train), scaler.transform(x_test)
+
 
 # ==========================================================
 # ModelBuilder Class
@@ -166,6 +166,7 @@ def build_model(x_train, x_val, x_test, y_train, y_val, y_test, estimator_instan
     pred_test = list(estimator_instance.predict(x_test_scaled))
 
     return pred_train, pred_val, pred_test
+
 
 class LazyMIL:
 
@@ -221,15 +222,7 @@ class LazyMIL:
                 start = time.time()
                 with OutputSuppressor() as logger:
                     pred_train, pred_val, pred_test = run_in_subprocess(
-                        build_model,
-                        x_train,
-                        x_val,
-                        x_test,
-                        y_train,
-                        y_val,
-                        y_test,
-                        estimator,
-                        self.hopt
+                        build_model, x_train, x_val, x_test, y_train, y_val, y_test, estimator, self.hopt
                     )
                 elapsed_min = (time.time() - start) / 60
 
@@ -245,9 +238,8 @@ class LazyMIL:
 
                 if self.verbose:
                     process = psutil.Process()
-                    mem_gb = process.memory_info().rss / (1024 ** 3)
+                    mem_gb = process.memory_info().rss / (1024**3)
                     print(f"[{current_model}/{total_models}] Running model: {model_name}")
                     print(f"  > Finished in {elapsed_min:.2f} min | Memory usage: {mem_gb:.3f} GB")
 
         return None
-

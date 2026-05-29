@@ -1,11 +1,11 @@
 import joblib
 from joblib import Parallel, delayed
-from rdkit import RDLogger
-from rdkit import Chem
-from rdkit.Chem import AllChem, rdMolAlign
-from qsarmil.utils.ensemble import ConformerEnsemble
+from rdkit import Chem, RDLogger
+from rdkit.Chem import AllChem
 
+from qsarmil.utils.ensemble import ConformerEnsemble
 from qsarmil.utils.logging import FailedConformer, FailedMolecule
+
 RDLogger.DisableLog("rdApp.*")
 
 

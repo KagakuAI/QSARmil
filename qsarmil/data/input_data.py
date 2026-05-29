@@ -1,9 +1,8 @@
-from rdkit import Chem
-from rdkit.Chem import AllChem
-from joblib import Parallel, delayed
 import pandas as pd
+from joblib import Parallel, delayed
+from rdkit import Chem, RDLogger
+from rdkit.Chem import AllChem
 
-from rdkit import RDLogger
 RDLogger.DisableLog("rdApp.*")
 
 
@@ -20,7 +19,7 @@ class DataValidator:
             "is_valid_smiles": False,
             "sanitization_passed": False,
             "conformer_generated": False,
-            "error": None
+            "error": None,
         }
 
         # Step 1 - SMILES parsing
@@ -68,10 +67,7 @@ class DataValidator:
 
         smiles_list = list(smiles_list)
 
-        return Parallel(n_jobs=self.num_cpu)(
-            delayed(self._validate_one)(smi)
-            for smi in smiles_list
-        )
+        return Parallel(n_jobs=self.num_cpu)(delayed(self._validate_one)(smi) for smi in smiles_list)
 
     def filter_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate and filter a dataframe."""
@@ -79,16 +75,12 @@ class DataValidator:
         smiles = df.iloc[:, 0].tolist()
         results = self.validate_smiles(smiles)
 
-        mask = [r["conformer_generated"]for r in results]
+        mask = [r["conformer_generated"] for r in results]
 
         removed_rows = []
         for i, (r, keep) in enumerate(zip(results, mask)):
             if not keep:
-                removed_rows.append({
-                    "row_index": i,
-                    "smiles": r["smiles"],
-                    "reason": r["error"]
-                })
+                removed_rows.append({"row_index": i, "smiles": r["smiles"], "reason": r["error"]})
 
         # print report
         if removed_rows:

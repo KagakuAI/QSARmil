@@ -1,7 +1,7 @@
 import numpy as np
 
-from qsarmil.utils.logging import FailedDescriptor
 from qsarmil.utils.ensemble import ConformerEnsemble, FragmentEnsemble, MixtureEnsemble
+from qsarmil.utils.logging import FailedDescriptor
 
 
 class DescriptorWrapper:

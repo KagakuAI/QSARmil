@@ -1,9 +1,10 @@
-import sys
-import os
 import logging
+import os
+import sys
 import threading
 
 from rdkit import Chem, RDLogger
+
 RDLogger.DisableLog("rdApp.*")
 
 
@@ -82,6 +83,7 @@ class FailedDescriptor:
         """
         smi = Chem.MolToSmiles(self.mol)
         return f"{smi} -> descriptor calculation failed"
+
 
 class OutputSuppressor:
     """

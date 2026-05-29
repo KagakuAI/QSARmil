@@ -1,4 +1,5 @@
 from typing import Iterable
+
 from rdkit import Chem
 from rdkit.Chem import Mol
 
@@ -23,11 +24,13 @@ class ConformerEnsemble(list[Mol]):
 
 class FragmentEnsemble(list[Mol]):
     """A list of RDKit Mol objects representing fragments."""
+
     def __init__(self, mols: Iterable[Mol] = ()):
         super().__init__(mols)
 
 
 class MixtureEnsemble(list[Mol]):
     """A list of RDKit Mol objects representing compound mixtures."""
+
     def __init__(self, mols: Iterable[Mol] = ()):
         super().__init__(mols)

@@ -1,14 +1,22 @@
-from rdkit import Chem
-from rdkit.Chem import AllChem
-import py3Dmol
 import numpy as np
-from IPython.display import display, HTML
+import py3Dmol
+from IPython.display import HTML, display
+from rdkit import Chem
 
 
-def visualize_conformers_grid(mol, weights, key_conformers, top_n=5,
-                              style="stick", n_cols=4, width=250, height=250,
-                              show_all=False, sort_by_weight=True):
-    
+def visualize_conformers_grid(
+    mol,
+    weights,
+    key_conformers,
+    top_n=5,
+    style="stick",
+    n_cols=4,
+    width=250,
+    height=250,
+    show_all=False,
+    sort_by_weight=True,
+):
+
     num_confs = mol.GetNumConformers()
     if num_confs != len(weights):
         raise ValueError("Number of weights must equal number of conformers")
@@ -51,7 +59,7 @@ def visualize_conformers_grid(mol, weights, key_conformers, top_n=5,
     # arrange into grid
     rows = []
     for i in range(0, len(viewers_html), n_cols):
-        row_html = "".join(viewers_html[i:i + n_cols])
+        row_html = "".join(viewers_html[i : i + n_cols])
         rows.append(f"<div style='margin-bottom:20px'>{row_html}</div>")
 
     # add legend

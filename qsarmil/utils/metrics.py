@@ -1,5 +1,6 @@
 from math import comb
 
+
 def kid_accuracy(true_key_inst, predicted_weights, top_n=1):
     """
     Returns:
@@ -18,11 +19,7 @@ def kid_accuracy(true_key_inst, predicted_weights, top_n=1):
         # -------------------------
         # Predicted KID accuracy
         # -------------------------
-        top_n_predicted_indices = sorted(
-            range(len(bag_weights)),
-            key=lambda i: bag_weights[i],
-            reverse=True
-        )[:top_n]
+        top_n_predicted_indices = sorted(range(len(bag_weights)), key=lambda i: bag_weights[i], reverse=True)[:top_n]
 
         if any(key_inst[idx] == 1 for idx in top_n_predicted_indices):
             predicted_hits += 1
@@ -41,8 +38,7 @@ def kid_accuracy(true_key_inst, predicted_weights, top_n=1):
             hit_probability = 1.0
         else:
             hit_probability = 1 - (
-                comb(bag_size - num_key_instances, num_pred_instances)
-                / comb(bag_size, num_pred_instances)
+                comb(bag_size - num_key_instances, num_pred_instances) / comb(bag_size, num_pred_instances)
             )
 
         expected_hits += hit_probability

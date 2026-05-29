@@ -1,8 +1,8 @@
 from rdkit import Chem, RDLogger
 from rdkit.Chem import BRICS
 
-from qsarmil.utils.logging import FailedConformer, FailedMolecule
 from qsarmil.utils.ensemble import FragmentEnsemble
+from qsarmil.utils.logging import FailedConformer, FailedMolecule
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -16,7 +16,8 @@ class RDKitFragmentGenerator:
         self.verbose = verbose
 
     def _generate_fragments(self, mol):
-        """Generate fragments for a single molecule using BRICS decomposition."""
+        """Generate fragments for a single molecule using BRICS
+        decomposition."""
 
         if isinstance(mol, (FailedMolecule, FailedConformer)):
             print("Failed molecule")
@@ -32,7 +33,6 @@ class RDKitFragmentGenerator:
         return frags
 
     def run(self, list_of_mols):
-
         """Generate fragments for a list of molecules."""
 
         total = len(list_of_mols)

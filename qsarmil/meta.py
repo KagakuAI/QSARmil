@@ -1,10 +1,12 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from qsarmil.lazy import LazyMIL
-from qsarcons.consensus import SystematicSearch, GeneticSearch
-
+from qsarcons.consensus import SystematicSearch
 from rdkit import RDLogger
+from sklearn.model_selection import train_test_split
+
+from qsarmil.lazy import LazyMIL
+
 RDLogger.DisableLog("rdApp.*")
+
 
 class MultiConformerModel:
 
@@ -28,8 +30,9 @@ class MultiConformerModel:
         df_train, df_val = train_test_split(df_train, test_size=0.2, random_state=42)
 
         # 3. Build multiple models
-        lazy_ml = LazyMIL(task=self.task, hopt=self.hopt, output_folder=self.output_folder,
-                          num_cpu=self.num_cpu, verbose=self.verbose)
+        lazy_ml = LazyMIL(
+            task=self.task, hopt=self.hopt, output_folder=self.output_folder, num_cpu=self.num_cpu, verbose=self.verbose
+        )
         lazy_ml.run(df_train, df_val, df_test)
 
         # 4. Load individual model predictions
@@ -51,7 +54,7 @@ class MultiConformerModel:
 
         # 6. Return predictions with df
         pred_df = pd.concat([res_test["SMILES"], pd.Series(pred_test)], axis=1)
-        pred_df = pred_df.rename(columns={0:"pred"})
+        pred_df = pred_df.rename(columns={0: "pred"})
 
         if self.verbose:
             print(f"Best consensus:")
