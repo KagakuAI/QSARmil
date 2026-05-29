@@ -1,5 +1,5 @@
 import pandas as pd
-from qsarcons.consensus import SystematicSearch
+from qsarcons.consensus import SystematicSearch, GeneticSearch
 from rdkit import RDLogger
 from sklearn.model_selection import train_test_split
 
@@ -44,10 +44,10 @@ class MultiConformerModel:
 
         # 5. Run genetic search
         if self.verbose:
-            print("\nRunning systematic consensus search ...")
+            print("\nRunning genetic consensus search ...")
 
-        # cons_search = GeneticSearch(cons_size="auto", metric="auto", n_iter=50)
-        cons_search = SystematicSearch(cons_size="auto", metric="auto")
+        cons_search = GeneticSearch(cons_size="auto", metric="auto", n_iter=50)
+        # cons_search = SystematicSearch(cons_size="auto", metric="auto")
 
         best_cons = cons_search.run(x_val, true_val)
         pred_test = cons_search.predict(x_test[best_cons])
